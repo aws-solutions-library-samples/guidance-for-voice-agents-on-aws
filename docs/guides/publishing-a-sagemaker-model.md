@@ -14,12 +14,10 @@ testing, ECR push, `CreateModelPackage`). The `sagemaker-marketplace-onboarding`
 through this end to end:
 
 ```
-/plugin marketplace add aws-samples/sample-apj-sup-sa
-/plugin install sagemaker-marketplace-onboarding@apj-sup-sa
+npx skills add aws-samples/sample-sagemaker-marketplace-onboarding-skill
 ```
 
-Or browse it directly: [`ai-infra/sagemaker-marketplace-onboarding`](https://github.com/aws-samples/sample-apj-sup-sa/tree/main/ai-infra/sagemaker-marketplace-onboarding)
-in `aws-samples/sample-apj-sup-sa`.
+Or browse it directly: [`aws-samples/sample-sagemaker-marketplace-onboarding-skill`](https://github.com/aws-samples/sample-sagemaker-marketplace-onboarding-skill).
 
 ## 2. Make it Pipecat-compatible
 
@@ -27,7 +25,7 @@ This Guidance orchestrates STT/TTS models with [Pipecat](https://github.com/pipe
 For your model to be consumable the way Deepgram's is here, your container's WebSocket protocol
 needs a control-message vocabulary an orchestrator can drive (start/flush/cancel/keepalive, etc.).
 See the same skill's
-[`reference/pipecat-integration.md`](https://github.com/aws-samples/sample-apj-sup-sa/blob/main/ai-infra/sagemaker-marketplace-onboarding/reference/pipecat-integration.md)
+[`reference/pipecat-integration.md`](https://github.com/aws-samples/sample-sagemaker-marketplace-onboarding-skill/blob/main/reference/pipecat-integration.md)
 for the architecture, the control-message table, and both Pipecat contribution paths
 (community-maintained integration vs. a PR into Pipecat core).
 
