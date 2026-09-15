@@ -85,6 +85,9 @@ This Guidance focuses on a production-ready **cascading pipeline** (STT → LLM 
 - **Extensible agents** -- Agent-to-agent (A2A) hub-and-spoke architecture with AWS Cloud Map discovery
 - **AWS-native** -- Amazon ECS Fargate with auto-scaling, Amazon Bedrock for LLM, optional self-hosted STT/TTS on Amazon SageMaker AI
 
+> **Model providers:** Publish your model on AWS Marketplace to reach customers building voice
+> agents like this one -- see [Publishing a SageMaker Model](docs/guides/publishing-a-sagemaker-model.md).
+
 For additional samples covering **bidirectional streaming** (Nova Sonic speech-to-speech), other frameworks (Strands, LiveKit, LangChain), and managed deployment options (AgentCore Runtime), see [sample-voice-agent-on-aws](https://github.com/aws-samples/sample-voice-agent-on-aws).
 
 ### Architecture
@@ -216,6 +219,7 @@ See the [Deployment Guide](infrastructure/DEPLOYMENT.md) for full manual cleanup
 | Call Transfers | [docs/reference/call-transfers.md](docs/reference/call-transfers.md) |
 | Adding a Capability Agent | [docs/guides/adding-a-capability-agent.md](docs/guides/adding-a-capability-agent.md) |
 | Adding a Local Tool | [docs/guides/adding-a-local-tool.md](docs/guides/adding-a-local-tool.md) |
+| Publishing a SageMaker Model | [docs/guides/publishing-a-sagemaker-model.md](docs/guides/publishing-a-sagemaker-model.md) |
 | Capability Agent Pattern | [docs/patterns/capability-agent-pattern.md](docs/patterns/capability-agent-pattern.md) |
 | Scaling | [docs/reference/scaling.md](docs/reference/scaling.md) |
 
