@@ -18,12 +18,22 @@ Daily PSTN ──> API Gateway ──> Lambda ──> Daily API (create room)
 ### handler.py
 Main Lambda entry point with `/start` webhook handler:
 - Parses Daily dial-in webhook payload
+- Authenticates the request before any other work (see `webhook_auth.py`)
 - Validates required fields (callId, callDomain)
 - Creates Daily room with SIP enabled
 - Generates bot meeting token
 - Calls ECS voice service to handle the call
 - Returns SIP URI for call routing
 - Supports both PSTN (via Daily webhook) and SIP (via direct request) modes
+
+### webhook_auth.py
+Request authentication for `/start`:
+- PSTN: verifies Daily's `X-Pinless-Signature` HMAC and rejects timestamps more than 5 minutes old or in the future
+- SIP (`"source": "sip"`): requires the `X-Sip-Webhook-Secret` shared-secret header
+- Constant-time comparisons
+- Secrets loaded from Secrets Manager (`WEBHOOK_SECRET_ARN`), cached per container for 5 minutes
+
+See [Webhook Authentication](../../../../docs/reference/daily-setup.md#webhook-authentication) for configuring `DAILY_HMAC_SECRET` and `SIP_WEBHOOK_SECRET`.
 
 ### daily_client.py
 Daily.co REST API client:
@@ -50,6 +60,7 @@ AWS ECS client for direct task management:
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `DAILY_API_KEY_SECRET_ARN` | ARN of secret containing Daily API key | Yes |
+| `WEBHOOK_SECRET_ARN` | ARN of secret containing `DAILY_HMAC_SECRET` and `SIP_WEBHOOK_SECRET` | Yes |
 | `ECS_SERVICE_ENDPOINT` | HTTP endpoint for ECS voice service (fallback) | No |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | No |
 
@@ -61,7 +72,7 @@ The ECS service endpoint is primarily read from SSM Parameter Store (`/voice-age
 
 Handle Daily dial-in webhook.
 
-**PSTN Request (from Daily webhook):**
+**PSTN Request (from Daily webhook):** signed by Daily with `X-Pinless-Timestamp` and `X-Pinless-Signature` headers.
 ```json
 {
   "callId": "abc123",
@@ -72,7 +83,7 @@ Handle Daily dial-in webhook.
 }
 ```
 
-**SIP Request (direct):**
+**SIP Request (direct):** must include the `X-Sip-Webhook-Secret: <SIP_WEBHOOK_SECRET>` header.
 ```json
 {
   "source": "sip",
@@ -131,7 +142,7 @@ npm run deploy
 ```
 1. Caller dials PSTN number
 2. Daily routes call to webhook endpoint
-3. Lambda receives POST /start
+3. Lambda receives POST /start and verifies the Daily signature
 4. Lambda creates Daily room (SIP enabled)
 5. Lambda generates bot meeting token
 6. Lambda calls ECS voice service (POST /call)
@@ -146,6 +157,8 @@ npm run deploy
 
 | Error | HTTP Code | Cause | Resolution |
 |-------|-----------|-------|------------|
+| Unauthorized | 401 | Missing, invalid, or stale signature / SIP secret | Check Daily `hmac` matches `DAILY_HMAC_SECRET`; check SIP client sends `X-Sip-Webhook-Secret` |
+| Webhook authentication unavailable | 500 | `DAILY_HMAC_SECRET` or `SIP_WEBHOOK_SECRET` unset, or the webhook secret could not be read | Check logs for `Webhook rejected: <reason>` and configure the webhook secret |
 | Missing callId | 400 | Webhook payload incomplete | Check Daily configuration |
 | Missing callDomain | 400 | Webhook payload incomplete | Check Daily configuration |
 | Daily API error | 500 | Room creation failed | Check Daily API key |

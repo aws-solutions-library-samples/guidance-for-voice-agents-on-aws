@@ -154,13 +154,14 @@ test_webhook_endpoint() {
 
     log_info "Testing webhook: $webhook_url"
 
-    # Test that endpoint responds (even with error - we just want connectivity)
+    # Test that endpoint responds (even with error - we just want connectivity).
+    # Unsigned requests are rejected with 401.
     local response=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$webhook_url" \
         -H "Content-Type: application/json" \
         -d '{"test": true}' \
         --connect-timeout 10 2>/dev/null)
 
-    if [ "$response" == "400" ] || [ "$response" == "200" ] || [ "$response" == "500" ]; then
+    if [ "$response" == "401" ] || [ "$response" == "400" ] || [ "$response" == "200" ] || [ "$response" == "500" ]; then
         log_pass "Webhook endpoint is reachable (HTTP $response)"
     else
         log_fail "Webhook endpoint unreachable (HTTP $response)"

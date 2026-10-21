@@ -149,11 +149,13 @@ The call flow: Caller dials number -> Daily holds caller -> Webhook fires -> Lam
 
 ### Phase 5: Save and Sync
 
-Extract HMAC secret from the config response and save to `backend/voice-agent/.env`. Then sync to AWS:
+Extract the `hmac` value from the config response (`.properties.pinless_dialin[0].hmac`) and save it to `backend/voice-agent/.env` as `DAILY_HMAC_SECRET`. Then sync to AWS:
 
 ```bash
 cd infrastructure && ./scripts/init-secrets.sh
 ```
+
+The webhook rejects PSTN calls that are not signed with this secret. Daily generates a new `hmac` every time `pinless_dialin` is updated, so repeat this step after any webhook reconfiguration.
 
 ### Phase 6: Verify
 
@@ -164,7 +166,7 @@ curl -s -o /dev/null -w "%{http_code}" -X POST "$WEBHOOK_URL" \
   -d '{"type": "dialin.connected", "callId": "test-verify", "callDomain": "test.daily.co"}'
 ```
 
-200 or 400 = webhook is responding (400 is expected for test data).
+401 = webhook is responding and rejecting unsigned requests (expected). 500 = check Lambda logs; `DAILY_HMAC_SECRET` may not be configured. For a signed end-to-end check, run `cd infrastructure && ./scripts/test-webhook.sh`.
 
 ### Phase 7: Report
 
