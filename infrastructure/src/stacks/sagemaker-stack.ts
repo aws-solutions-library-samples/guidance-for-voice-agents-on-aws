@@ -4,7 +4,11 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { VoiceAgentConfig } from '../config';
 import { SSM_PARAMS } from '../ssm-parameters';
-import { SageMakerEndpointConstruct } from '../constructs';
+import {
+  SageMakerEndpointConstruct,
+  STT_INSTANCE_POOLS,
+  pooledProductionVariant,
+} from '../constructs';
 
 /**
  * Props for SageMakerStack
@@ -154,14 +158,14 @@ export class SageMakerStack extends cdk.Stack {
         {
           endpointConfigName: `${resourcePrefix}-flux-stt-config`,
           productionVariants: [
-            {
-              variantName: 'AllTraffic',
-              modelName: fluxSttModelName,
-              initialInstanceCount: config.environment === 'prod' ? 2 : 1,
-              instanceType: 'ml.g6.2xlarge',
-              initialVariantWeight: 1,
-              modelDataDownloadTimeoutInSeconds: 3600,
-            },
+            // Same STT instance pools as the Nova-3 endpoint, so an
+            // InsufficientInstanceCapacity error falls back across GPU types
+            // instead of failing the endpoint and rolling back the stack.
+            pooledProductionVariant(
+              fluxSttModelName,
+              config.environment === 'prod' ? 2 : 1,
+              STT_INSTANCE_POOLS
+            ),
           ],
         }
       );

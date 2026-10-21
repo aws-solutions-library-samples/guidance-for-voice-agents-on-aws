@@ -143,6 +143,62 @@ describe('SageMakerStack', () => {
   });
 });
 
+describe('SageMakerStack with Flux STT enabled', () => {
+  let template: Template;
+
+  beforeAll(() => {
+    const app = new cdk.App();
+    const stack = new SageMakerStack(app, 'TestSageMakerFluxStack', {
+      env: TEST_ENV,
+      config: {
+        ...TEST_CONFIG,
+        fluxSttModelPackageArn:
+          'arn:aws:sagemaker:us-east-1:123456789012:model-package/test-flux-stt',
+      },
+    });
+    template = Template.fromStack(stack);
+  });
+
+  it('should create Flux STT endpoint config with the same instance pools as STT', () => {
+    template.hasResourceProperties('AWS::SageMaker::EndpointConfig', {
+      EndpointConfigName: Match.stringLikeRegexp('flux-stt-config'),
+      ProductionVariants: [
+        Match.objectLike({
+          VariantName: 'AllTraffic',
+          InstanceType: Match.absent(),
+          InstancePools: [
+            Match.objectLike({ InstanceType: 'ml.g6.2xlarge', Priority: 1 }),
+            Match.objectLike({ InstanceType: 'ml.g6e.2xlarge', Priority: 2 }),
+            Match.objectLike({ InstanceType: 'ml.g5.2xlarge', Priority: 3 }),
+            Match.objectLike({ InstanceType: 'ml.g4dn.2xlarge', Priority: 4 }),
+          ],
+          VariantInstanceProvisionTimeoutInSeconds: 1200,
+        }),
+      ],
+    });
+  });
+
+  it('should not use a single fixed InstanceType on any endpoint config', () => {
+    const configs = template.findResources('AWS::SageMaker::EndpointConfig');
+    expect(Object.keys(configs)).toHaveLength(3);
+    for (const config of Object.values(configs)) {
+      for (const variant of config.Properties.ProductionVariants) {
+        expect(variant.InstanceType).toBeUndefined();
+        expect(variant.InstancePools).toBeDefined();
+      }
+    }
+  });
+
+  it('should create Flux STT endpoint and SSM parameter', () => {
+    template.hasResourceProperties('AWS::SageMaker::Endpoint', {
+      EndpointName: Match.stringLikeRegexp('flux-stt-endpoint'),
+    });
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: SSM_PARAMS.FLUX_STT_ENDPOINT_NAME,
+    });
+  });
+});
+
 describe('BotRunnerStack', () => {
   let template: Template;
 
