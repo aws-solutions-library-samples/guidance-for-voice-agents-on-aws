@@ -40,6 +40,10 @@ GitHub provides additional document on [forking a repository](https://help.githu
 [creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
 
 
+## Adding an example
+To add a voice agent use case example, start from [examples/TEMPLATE/](examples/TEMPLATE/) using the `create-example` skill, and follow the rules in [examples/AGENTS.md](examples/AGENTS.md).
+
+
 ## Finding contributions to work on
 Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help wanted' issues is a great place to start.
 
