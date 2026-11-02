@@ -8,6 +8,11 @@
 
 A sample foundation for building real-time voice AI agents on AWS. Handles phone calls over SIP/PSTN and voice interactions in web/mobile applications via WebRTC.
 
+## Choose your path
+
+- **[Main guidance](#getting-started)**: the full voice agent foundation. Phone (SIP/PSTN) and WebRTC, cascading STT → LLM → TTS on Amazon ECS, with optional self-hosted models on Amazon SageMaker AI. Start here.
+- **[Other use case examples](examples/)**: self-contained voice agent use cases. Each may stand alone or reuse parts of the main guidance.
+
 ## Getting Started
 
 ### Prerequisites
@@ -204,6 +209,7 @@ See the [Deployment Guide](infrastructure/DEPLOYMENT.md) for full manual cleanup
 │   ├── guides/              # Developer guides
 │   ├── patterns/            # Architecture patterns
 │   └── reference/           # Reference documentation
+├── examples/                # Other use case examples
 └── resources/               # Sample data (KB documents)
 ```
 
@@ -222,6 +228,7 @@ See the [Deployment Guide](infrastructure/DEPLOYMENT.md) for full manual cleanup
 | Publishing a SageMaker Model | [docs/guides/publishing-a-sagemaker-model.md](docs/guides/publishing-a-sagemaker-model.md) |
 | Capability Agent Pattern | [docs/patterns/capability-agent-pattern.md](docs/patterns/capability-agent-pattern.md) |
 | Scaling | [docs/reference/scaling.md](docs/reference/scaling.md) |
+| Other Use Case Examples | [examples/README.md](examples/README.md) |
 
 ## Blogs and Resources
 
