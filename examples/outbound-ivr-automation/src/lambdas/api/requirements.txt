@@ -1,0 +1,10 @@
+# AWS Lambda's built-in Python runtime bundles an older boto3/botocore than this
+# handler needs: the "bedrock-agentcore" service (POST /api/calls's AgentCore path,
+# see README.md "Starting a call") is newer than what ships in the base runtime image.
+# Pinned to match the repo's own dependency (pyproject.toml), which is already known
+# to include the bedrock-agentcore service model.
+#
+# CDK's Lambda asset bundling needs to pip install this into the asset alongside
+# handler.py and the vendored outbound_ivr.tools package -- see infra/stacks/lambda_bundling.py,
+# which today only copies files in; it has no install step yet.
+boto3>=1.40.0

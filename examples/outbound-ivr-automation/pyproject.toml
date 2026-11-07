@@ -1,0 +1,57 @@
+[project]
+name = "outbound-ivr-automation"
+version = "0.1.0"
+description = "Outbound IVR phone-tree navigation and prior-auth intake with Amazon Nova Sonic"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Shared code (prompts, intake rules, the keypress gate) needs only these. The voice
+# stack (Strands, AgentCore, LiveKit) comes in through the extras below.
+dependencies = [
+    "boto3==1.43.106",
+    "python-dotenv==1.2.4",
+    "pydantic==2.13.5",
+    "structlog==26.1.0",
+]
+
+[project.optional-dependencies]
+# Every dependency is pinned to the exact version uv.lock resolves; install with
+# `uv sync --frozen` and bump deliberately (edit the pin, then `uv lock`).
+# numpy is the audio RMS/dBFS and resampling math in outbound_ivr.voice.agent
+# (`_level_db`/the resample helper); declared explicitly, pinned, rather than relying
+# on it arriving transitively through soxr/strands/livekit, which is incidental and
+# could stop being true on an unrelated version bump.
+strands = ["strands-agents[bidi,otel]==1.59.0", "soxr==1.0.0", "numpy==2.5.4"]
+# AgentCore Runtime entrypoint (src/agentcore/livekit_app.py):
+# uv sync --extra strands --extra agentcore.
+agentcore = ["bedrock-agentcore==1.24.1", "aws-opentelemetry-distro==0.21.0"]
+# The deployed transport: self-hosted LiveKit server + SIP, and the matching transport
+# (src/outbound_ivr/voice/livekit_transport.py).
+livekit = ["livekit==1.1.21", "livekit-api==1.2.2"]
+# The CDK app under infrastructure/.
+infra = ["aws-cdk-lib==2.273.0", "constructs==10.8.1", "cdk-nag==2.38.2"]
+dev = [
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "ruff==0.16.10",
+    "moto[dynamodb,s3]==5.2.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/outbound_ivr"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# tests/agentcore/test_agentcore_livekit_app.py imports `agentcore.livekit_app` as a
+# plain top-level module (src/agentcore/ has no __init__.py and isn't part of the
+# installed `outbound-ivr-automation` package) -- this puts src/ on sys.path so it
+# resolves as an implicit namespace package when running under pytest.
+pythonpath = ["src"]

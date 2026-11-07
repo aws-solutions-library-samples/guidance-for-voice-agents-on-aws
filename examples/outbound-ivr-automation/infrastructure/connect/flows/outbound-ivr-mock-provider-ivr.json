@@ -1,0 +1,1052 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "24d9950b-47ea-5a6e-b960-26ec96dd0619",
+  "Actions": [
+    {
+      "Identifier": "24d9950b-47ea-5a6e-b960-26ec96dd0619",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Parameters": {
+        "TextToSpeechVoice": "Joanna",
+        "TextToSpeechEngine": "neural"
+      },
+      "Transitions": {
+        "NextAction": "bae5bbfe-c73a-5253-b997-d323e2f95f10",
+        "Errors": [
+          {
+            "NextAction": "bae5bbfe-c73a-5253-b997-d323e2f95f10",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "bae5bbfe-c73a-5253-b997-d323e2f95f10",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Transitions": {
+        "NextAction": "4bb9b110-6e8b-51a6-92aa-71479f629a81",
+        "Errors": [],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "4bb9b110-6e8b-51a6-92aa-71479f629a81",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you for calling AnyCompany Medical Group. This is a demonstration phone system, not a real medical office. Please listen carefully, as our menu options have changed."
+      },
+      "Transitions": {
+        "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+        "Errors": [
+          {
+            "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+      "Type": "DisconnectParticipant",
+      "Parameters": {},
+      "Transitions": {}
+    },
+    {
+      "Identifier": "89f0b99c-f6c5-5560-b909-706a34cd3a43",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "876974dc-16be-553f-b1e2-3f6d64e4052e",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, all of our staff are helping other callers. Please call again later. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "f8e7d762-463b-5be9-bf75-adfd871ad7a2",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Our billing line is closed for this demonstration. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "123c65a8-86dc-57f9-8bee-ebffc0446828",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Our patient scheduling line is closed for this demonstration. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "1dfa4f53-4274-5d01-b7b4-b007e3a9d2d6",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "7b1b60ce-c546-5514-aff3-56b611dc135f",
+        "Errors": [
+          {
+            "NextAction": "7b1b60ce-c546-5514-aff3-56b611dc135f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "7b1b60ce-c546-5514-aff3-56b611dc135f",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "For billing questions, press 1. For patients and appointment scheduling, press 2. For providers, insurance companies, and prior authorizations, press 3.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "1dfa4f53-4274-5d01-b7b4-b007e3a9d2d6",
+        "Errors": [
+          {
+            "NextAction": "89f0b99c-f6c5-5560-b909-706a34cd3a43",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "1dfa4f53-4274-5d01-b7b4-b007e3a9d2d6",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "1dfa4f53-4274-5d01-b7b4-b007e3a9d2d6",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "f8e7d762-463b-5be9-bf75-adfd871ad7a2",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "123c65a8-86dc-57f9-8bee-ebffc0446828",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "2695794e-d8c0-58c1-9354-a60cf07dd942",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We did not receive a selection."
+      },
+      "Transitions": {
+        "NextAction": "7b1b60ce-c546-5514-aff3-56b611dc135f",
+        "Errors": [
+          {
+            "NextAction": "7b1b60ce-c546-5514-aff3-56b611dc135f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "10389b0f-998f-57c7-b786-166af79c1c58",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "61700017-7c53-5896-a9c5-86a048df0bd8",
+        "Errors": [
+          {
+            "NextAction": "61700017-7c53-5896-a9c5-86a048df0bd8",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "61700017-7c53-5896-a9c5-86a048df0bd8",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "For billing questions, press 1. For patients and appointment scheduling, press 2. For providers, insurance companies, and prior authorizations, press 3.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "10389b0f-998f-57c7-b786-166af79c1c58",
+        "Errors": [
+          {
+            "NextAction": "2695794e-d8c0-58c1-9354-a60cf07dd942",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "10389b0f-998f-57c7-b786-166af79c1c58",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "10389b0f-998f-57c7-b786-166af79c1c58",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "f8e7d762-463b-5be9-bf75-adfd871ad7a2",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "123c65a8-86dc-57f9-8bee-ebffc0446828",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "1aa88bc3-d74b-50ae-b737-3471370ebaea",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We did not receive a selection."
+      },
+      "Transitions": {
+        "NextAction": "61700017-7c53-5896-a9c5-86a048df0bd8",
+        "Errors": [
+          {
+            "NextAction": "61700017-7c53-5896-a9c5-86a048df0bd8",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "0a3c56ef-4f5f-5eae-8c27-7f28f608e993",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+        "Errors": [
+          {
+            "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "For billing questions, press 1. For patients and appointment scheduling, press 2. For providers, insurance companies, and prior authorizations, press 3.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "0a3c56ef-4f5f-5eae-8c27-7f28f608e993",
+        "Errors": [
+          {
+            "NextAction": "1aa88bc3-d74b-50ae-b737-3471370ebaea",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "0a3c56ef-4f5f-5eae-8c27-7f28f608e993",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "0a3c56ef-4f5f-5eae-8c27-7f28f608e993",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "f8e7d762-463b-5be9-bf75-adfd871ad7a2",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "123c65a8-86dc-57f9-8bee-ebffc0446828",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "b8d6ce73-6fba-5a76-a7da-c0dff9cace56",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Our claim status line is closed for this demonstration. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "58f4fd97-1e19-5517-b52e-43d9b7e8cd01",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Our eligibility and benefits line is closed for this demonstration. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "cd159362-2d7f-5fe7-a623-18f5a75addfc",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "6a4933be-25b3-5994-8d33-b49c2d639f4d",
+        "Errors": [
+          {
+            "NextAction": "6a4933be-25b3-5994-8d33-b49c2d639f4d",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "6a4933be-25b3-5994-8d33-b49c2d639f4d",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Provider and insurance services. For claim status, press 1. For eligibility and benefits, press 2. For authorizations and referrals, press 3. To return to the main menu, press star.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "cd159362-2d7f-5fe7-a623-18f5a75addfc",
+        "Errors": [
+          {
+            "NextAction": "89f0b99c-f6c5-5560-b909-706a34cd3a43",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "cd159362-2d7f-5fe7-a623-18f5a75addfc",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "cd159362-2d7f-5fe7-a623-18f5a75addfc",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "b8d6ce73-6fba-5a76-a7da-c0dff9cace56",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "58f4fd97-1e19-5517-b52e-43d9b7e8cd01",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "453ef079-1ffd-5ae9-b9b1-8c0291a1c27b",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "*"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "c13d38e1-7c92-57fc-b882-b48d8b0d4274",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We did not receive a selection."
+      },
+      "Transitions": {
+        "NextAction": "6a4933be-25b3-5994-8d33-b49c2d639f4d",
+        "Errors": [
+          {
+            "NextAction": "6a4933be-25b3-5994-8d33-b49c2d639f4d",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "8ba75cab-fd86-571a-9da2-c800c9e6fb98",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "43ae0574-68d2-5dc5-83bf-12b1f76c8b20",
+        "Errors": [
+          {
+            "NextAction": "43ae0574-68d2-5dc5-83bf-12b1f76c8b20",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "43ae0574-68d2-5dc5-83bf-12b1f76c8b20",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Provider and insurance services. For claim status, press 1. For eligibility and benefits, press 2. For authorizations and referrals, press 3. To return to the main menu, press star.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "8ba75cab-fd86-571a-9da2-c800c9e6fb98",
+        "Errors": [
+          {
+            "NextAction": "c13d38e1-7c92-57fc-b882-b48d8b0d4274",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "8ba75cab-fd86-571a-9da2-c800c9e6fb98",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "8ba75cab-fd86-571a-9da2-c800c9e6fb98",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "b8d6ce73-6fba-5a76-a7da-c0dff9cace56",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "58f4fd97-1e19-5517-b52e-43d9b7e8cd01",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "453ef079-1ffd-5ae9-b9b1-8c0291a1c27b",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "*"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "c3db4ddb-e2cc-5d2d-9079-89dd90861a08",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We did not receive a selection."
+      },
+      "Transitions": {
+        "NextAction": "43ae0574-68d2-5dc5-83bf-12b1f76c8b20",
+        "Errors": [
+          {
+            "NextAction": "43ae0574-68d2-5dc5-83bf-12b1f76c8b20",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "7db503aa-a99a-5bd3-af1d-ab2f127535cd",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+        "Errors": [
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Provider and insurance services. For claim status, press 1. For eligibility and benefits, press 2. For authorizations and referrals, press 3. To return to the main menu, press star.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "7db503aa-a99a-5bd3-af1d-ab2f127535cd",
+        "Errors": [
+          {
+            "NextAction": "c3db4ddb-e2cc-5d2d-9079-89dd90861a08",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "7db503aa-a99a-5bd3-af1d-ab2f127535cd",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "7db503aa-a99a-5bd3-af1d-ab2f127535cd",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "b8d6ce73-6fba-5a76-a7da-c0dff9cace56",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "58f4fd97-1e19-5517-b52e-43d9b7e8cd01",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "453ef079-1ffd-5ae9-b9b1-8c0291a1c27b",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "8b1d9801-b55b-51cc-8561-1c9182fefa39",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "*"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "55f3c1be-3c50-5022-8725-21e6e3dba5bf",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Our referral line is closed for this demonstration. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "dd12936e-5080-53df-9c62-7bd45999138b",
+      "Type": "TransferContactToQueue",
+      "Parameters": {},
+      "Transitions": {
+        "NextAction": "876974dc-16be-553f-b1e2-3f6d64e4052e",
+        "Errors": [
+          {
+            "NextAction": "876974dc-16be-553f-b1e2-3f6d64e4052e",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "876974dc-16be-553f-b1e2-3f6d64e4052e",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "de392137-9144-5b2a-8806-4ec5f25e8e56",
+      "Type": "UpdateContactTargetQueue",
+      "Parameters": {
+        "QueueId": "${FRONT_DESK_QUEUE_ARN}"
+      },
+      "Transitions": {
+        "NextAction": "dd12936e-5080-53df-9c62-7bd45999138b",
+        "Errors": [
+          {
+            "NextAction": "dd12936e-5080-53df-9c62-7bd45999138b",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "44780175-7718-580f-a1eb-48f9a8ed6841",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Thank you. Please hold while I transfer you to our prior authorization desk."
+      },
+      "Transitions": {
+        "NextAction": "de392137-9144-5b2a-8806-4ec5f25e8e56",
+        "Errors": [
+          {
+            "NextAction": "de392137-9144-5b2a-8806-4ec5f25e8e56",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "5bb0dd51-c89a-5912-8384-16bcf280496d",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Our pharmacy authorization line is closed for this demonstration. Goodbye."
+      },
+      "Transitions": {
+        "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+        "Errors": [
+          {
+            "NextAction": "6a36dd88-cda2-561a-aeba-da84b2006b4f",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "43bc498c-9b05-5a9c-ac6b-8518bfd65419",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "89394f88-c608-5e8b-a671-8d38d07822b2",
+        "Errors": [
+          {
+            "NextAction": "89394f88-c608-5e8b-a671-8d38d07822b2",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "89394f88-c608-5e8b-a671-8d38d07822b2",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Authorizations and referrals. For referral status, press 1. For imaging and procedure prior authorizations, press 2. For pharmacy prior authorizations, press 3. To go back, press star.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "43bc498c-9b05-5a9c-ac6b-8518bfd65419",
+        "Errors": [
+          {
+            "NextAction": "89f0b99c-f6c5-5560-b909-706a34cd3a43",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "43bc498c-9b05-5a9c-ac6b-8518bfd65419",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "43bc498c-9b05-5a9c-ac6b-8518bfd65419",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "55f3c1be-3c50-5022-8725-21e6e3dba5bf",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "44780175-7718-580f-a1eb-48f9a8ed6841",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "5bb0dd51-c89a-5912-8384-16bcf280496d",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "*"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "053cf5db-7d93-5c6d-9d4d-8c5493f0750f",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We did not receive a selection."
+      },
+      "Transitions": {
+        "NextAction": "89394f88-c608-5e8b-a671-8d38d07822b2",
+        "Errors": [
+          {
+            "NextAction": "89394f88-c608-5e8b-a671-8d38d07822b2",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "b4b0cd84-b3dc-574b-a7a5-d68ee54b3b65",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "c54cdab9-c3ea-5132-8656-0a116754383d",
+        "Errors": [
+          {
+            "NextAction": "c54cdab9-c3ea-5132-8656-0a116754383d",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "c54cdab9-c3ea-5132-8656-0a116754383d",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Authorizations and referrals. For referral status, press 1. For imaging and procedure prior authorizations, press 2. For pharmacy prior authorizations, press 3. To go back, press star.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "b4b0cd84-b3dc-574b-a7a5-d68ee54b3b65",
+        "Errors": [
+          {
+            "NextAction": "053cf5db-7d93-5c6d-9d4d-8c5493f0750f",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "b4b0cd84-b3dc-574b-a7a5-d68ee54b3b65",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "b4b0cd84-b3dc-574b-a7a5-d68ee54b3b65",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "55f3c1be-3c50-5022-8725-21e6e3dba5bf",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "44780175-7718-580f-a1eb-48f9a8ed6841",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "5bb0dd51-c89a-5912-8384-16bcf280496d",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "*"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Identifier": "3cad63ee-cd61-5e83-8d82-d8ba78b71931",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "We did not receive a selection."
+      },
+      "Transitions": {
+        "NextAction": "c54cdab9-c3ea-5132-8656-0a116754383d",
+        "Errors": [
+          {
+            "NextAction": "c54cdab9-c3ea-5132-8656-0a116754383d",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "a89381b0-2d78-577f-85c5-9c6b8b9c1bbc",
+      "Type": "MessageParticipant",
+      "Parameters": {
+        "Text": "Sorry, that is not a valid option."
+      },
+      "Transitions": {
+        "NextAction": "453ef079-1ffd-5ae9-b9b1-8c0291a1c27b",
+        "Errors": [
+          {
+            "NextAction": "453ef079-1ffd-5ae9-b9b1-8c0291a1c27b",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": []
+      }
+    },
+    {
+      "Identifier": "453ef079-1ffd-5ae9-b9b1-8c0291a1c27b",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Authorizations and referrals. For referral status, press 1. For imaging and procedure prior authorizations, press 2. For pharmacy prior authorizations, press 3. To go back, press star.",
+        "InputTimeLimitSeconds": "6",
+        "StoreInput": "False"
+      },
+      "Transitions": {
+        "NextAction": "a89381b0-2d78-577f-85c5-9c6b8b9c1bbc",
+        "Errors": [
+          {
+            "NextAction": "3cad63ee-cd61-5e83-8d82-d8ba78b71931",
+            "ErrorType": "InputTimeLimitExceeded"
+          },
+          {
+            "NextAction": "a89381b0-2d78-577f-85c5-9c6b8b9c1bbc",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "a89381b0-2d78-577f-85c5-9c6b8b9c1bbc",
+            "ErrorType": "NoMatchingError"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "55f3c1be-3c50-5022-8725-21e6e3dba5bf",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "1"
+              ]
+            }
+          },
+          {
+            "NextAction": "44780175-7718-580f-a1eb-48f9a8ed6841",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "2"
+              ]
+            }
+          },
+          {
+            "NextAction": "5bb0dd51-c89a-5912-8384-16bcf280496d",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "3"
+              ]
+            }
+          },
+          {
+            "NextAction": "95732164-b1d8-50b2-a2b7-94ae4249eff5",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "*"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

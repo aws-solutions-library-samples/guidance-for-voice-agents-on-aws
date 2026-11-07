@@ -1,0 +1,10 @@
+# Example-root Docker build context, used by src/agentcore/Dockerfile (CDK stages it
+# as the image asset too). Allowlist only what that image COPYs; .venv, node_modules,
+# infrastructure/cdk.out, and dashboard dist/ stay out.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/outbound_ivr/
+!src/agentcore/
+**/__pycache__

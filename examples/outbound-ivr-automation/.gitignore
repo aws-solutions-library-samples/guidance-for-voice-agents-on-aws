@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+.ruff_cache/
+.pytest_cache/
+
+# Node / dashboard
+src/dashboard/node_modules/
+src/dashboard/dist/
+
+# CDK
+infrastructure/cdk.out/
+infrastructure/cdk.context.json
+
+.DS_Store
+
+# Every local env file, not just `.env`: `.env.example` is the only one tracked.
+.env
+.env.*
+!.env.example
