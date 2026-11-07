@@ -57,6 +57,19 @@ def test_start_call_route_has_a_lower_throttle_than_the_stage_default(
     assert route_settings["ThrottlingBurstLimit"] < default_route_settings["ThrottlingBurstLimit"]
 
 
+def test_stage_waits_for_the_start_call_route(dashboard_template) -> None:
+    # API Gateway rejects a stage whose RouteSettings name a route that does not
+    # exist yet ("Unable to find Route by key POST /api/calls"), so the stage must
+    # depend on that route in the template.
+    (stage,) = dashboard_template.find_resources("AWS::ApiGatewayV2::Stage").values()
+    routes = dashboard_template.find_resources(
+        "AWS::ApiGatewayV2::Route", {"Properties": {"RouteKey": "POST /api/calls"}}
+    )
+    assert len(routes) == 1
+    (route_id,) = routes
+    assert route_id in stage.get("DependsOn", [])
+
+
 def test_api_lambda_role_has_no_wildcard_resources(dashboard_template) -> None:
     policies = dashboard_template.find_resources("AWS::IAM::Policy")
     api_role_policies = {

@@ -71,6 +71,7 @@ ACCOUNT=${OUTBOUND_IVR_ACCOUNT_ID:-}
 REGION=${OUTBOUND_IVR_REGION:-}
 : "${FRONT_DESK_NUMBER:?set FRONT_DESK_NUMBER in .env}"
 : "${AGENT_EMAIL:?set AGENT_EMAIL in .env (the escalation agent login)}"
+: "${CALLER_ID_NUMBER:?set CALLER_ID_NUMBER in .env: the Chime SDK number to call from (see the README Prerequisites)}"
 [[ "$FRONT_DESK_NUMBER" =~ ^\+[1-9][0-9]{7,14}$ ]] || {
   echo "phone numbers must be E.164, like +15555550100" >&2; exit 1; }
 

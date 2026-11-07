@@ -1,6 +1,6 @@
 [project]
 name = "outbound-ivr-automation"
-version = "0.1.0"
+version = "1.0.0"
 description = "Outbound IVR phone-tree navigation and prior-auth intake with Amazon Nova Sonic"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

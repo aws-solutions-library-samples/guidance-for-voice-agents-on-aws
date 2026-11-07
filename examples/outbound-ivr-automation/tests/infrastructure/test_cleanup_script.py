@@ -53,8 +53,20 @@ def test_cleanup_script_destroys_stacks_in_reverse_dependency_order() -> None:
 def test_cleanup_script_empties_buckets_before_any_destroy() -> None:
     text = SCRIPT.read_text()
     empty_idx = text.index("empty_bucket ")
-    first_destroy_idx = text.index("destroy_outbound_ivr\n")
+    first_destroy_idx = text.index("if ! destroy_outbound_ivr")
     assert empty_idx < first_destroy_idx, (
         "buckets must be emptied before any `cdk destroy`, which otherwise fails "
         "on the two non-auto-delete buckets"
     )
+
+
+def test_cleanup_script_stops_before_office_and_voice_while_agentcore_holds_the_vpc() -> None:
+    """AgentCore keeps the Runtime's agentic_ai network interfaces for up to 8 hours
+    after the Runtime is deleted, which blocks OutboundIvrStack's deletion. The script
+    must explain that and stop, not go on to the voice stack, whose Elastic IP the
+    LiveKit host still holds."""
+    text = SCRIPT.read_text()
+    failure_branch = text[text.index("if ! destroy_outbound_ivr") : text.index('echo "== 3/4')]
+    assert "agentic_ai" in failure_branch
+    assert "up to 8 hours" in failure_branch
+    assert "exit 1" in failure_branch

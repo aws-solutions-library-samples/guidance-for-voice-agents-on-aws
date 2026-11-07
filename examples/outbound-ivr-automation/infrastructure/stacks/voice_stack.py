@@ -57,6 +57,7 @@ from __future__ import annotations
 import json
 
 from aws_cdk import (
+    Annotations,
     CfnOutput,
     CustomResource,
     Duration,
@@ -266,9 +267,10 @@ class VoiceStack(Stack):
 
         # Outbound caller ID. Chime rejects any caller ID that is not a Chime
         # SDK number in this account ("403 Caller ID is not a valid number"),
-        # and only honors it as the Voice Connector's default number. The
-        # number itself is ordered once outside CDK (there is no CloudFormation
-        # resource for a phone number order) and passed in as context.
+        # and only accepts a default number that is associated with this Voice
+        # Connector. The number itself is ordered once outside CDK (there is no
+        # CloudFormation resource for a phone number order) and passed in as
+        # context; this stack associates it with its own connector below.
         caller_id = self.node.try_get_context("callerIdNumber")
         termination = {
             "CallingRegions": ["US"],
@@ -276,8 +278,70 @@ class VoiceStack(Stack):
             "CpsLimit": 1,
             "Disabled": False,
         }
+        caller_id_association: cr.AwsCustomResource | None = None
         if caller_id:
             termination["DefaultPhoneNumber"] = caller_id
+            # ForceAssociate is false on purpose: a number that already belongs to
+            # another Voice Connector (another deployment's) is reported as a
+            # PhoneNumberErrors entry and left where it is, and the termination
+            # call below then fails with a clear "not associated" message instead
+            # of silently taking the number away from that deployment. The
+            # physical id carries the number, so changing callerIdNumber
+            # associates the new number before the old one is released.
+            association_params = {
+                "VoiceConnectorId": voice_connector_id,
+                "E164PhoneNumbers": [caller_id],
+            }
+            association_id = cr.PhysicalResourceId.of(
+                f"{VOICE_CONNECTOR_NAME}-caller-id-{caller_id}"
+            )
+            caller_id_association = cr.AwsCustomResource(
+                self,
+                "ChimeCallerIdAssociation",
+                resource_type="Custom::ChimeCallerIdAssociation",
+                install_latest_aws_sdk=True,
+                removal_policy=RemovalPolicy.DESTROY,
+                on_create=cr.AwsSdkCall(
+                    service="ChimeSDKVoice",
+                    action="associatePhoneNumbersWithVoiceConnector",
+                    parameters={**association_params, "ForceAssociate": False},
+                    physical_resource_id=association_id,
+                ),
+                on_update=cr.AwsSdkCall(
+                    service="ChimeSDKVoice",
+                    action="associatePhoneNumbersWithVoiceConnector",
+                    parameters={**association_params, "ForceAssociate": False},
+                    physical_resource_id=association_id,
+                ),
+                # Released before the connector is deleted (this resource depends
+                # on it), since Chime refuses to delete a connector that still has
+                # numbers. The number itself stays in the account's inventory.
+                on_delete=cr.AwsSdkCall(
+                    service="ChimeSDKVoice",
+                    action="disassociatePhoneNumbersFromVoiceConnector",
+                    parameters=association_params,
+                ),
+                policy=cr.AwsCustomResourcePolicy.from_statements(
+                    [
+                        iam.PolicyStatement(
+                            sid="AssociateCallerIdNumber",
+                            actions=[
+                                "chime:AssociatePhoneNumbersWithVoiceConnector",
+                                "chime:DisassociatePhoneNumbersFromVoiceConnector",
+                            ],
+                            resources=[CHIME_VOICE_CONNECTOR_ARN_PATTERN],
+                        )
+                    ]
+                ),
+            )
+            caller_id_association.node.add_dependency(voice_connector)
+        else:
+            Annotations.of(self).add_warning_v2(
+                "outbound-ivr:no-caller-id",
+                "callerIdNumber is not set: Chime rejects outbound calls whose caller ID "
+                "is not a number associated with this Voice Connector. Set "
+                "CALLER_ID_NUMBER in .env to a Chime SDK number you have ordered.",
+            )
         termination_params = {"VoiceConnectorId": voice_connector_id, "Termination": termination}
         termination = cr.AwsCustomResource(
             self,
@@ -315,6 +379,8 @@ class VoiceStack(Stack):
             ),
         )
         termination.node.add_dependency(voice_connector)
+        if caller_id_association is not None:
+            termination.node.add_dependency(caller_id_association)
 
         # ------------------------------------------------------------------
         # Termination credentials: a dedicated handler Lambda, not another
@@ -463,7 +529,13 @@ def handler(event, _context):
         )
         termination_credentials.node.add_dependency(termination)
 
-        for cr_construct in (voice_connector, termination):
+        cr_constructs = [voice_connector, termination]
+        if caller_id_association is not None:
+            # chime:AssociatePhoneNumbersWithVoiceConnector and
+            # chime:DisassociatePhoneNumbersFromVoiceConnector use the same
+            # connector-scoped vc/* ARN as the actions listed below.
+            cr_constructs.append(caller_id_association)
+        for cr_construct in cr_constructs:
             NagSuppressions.add_resource_suppressions(
                 cr_construct,
                 [
@@ -482,8 +554,10 @@ def handler(event, _context):
                             "chime:CreateVoiceConnector has no resource-level "
                             "permissions to scope to (no connector id exists "
                             "yet); chime:UpdateVoiceConnector, "
-                            "chime:DeleteVoiceConnector, and "
-                            "chime:PutVoiceConnectorTermination are all "
+                            "chime:DeleteVoiceConnector, "
+                            "chime:PutVoiceConnectorTermination, and the caller-ID "
+                            "chime:AssociatePhoneNumbersWithVoiceConnector/"
+                            "DisassociatePhoneNumbersFromVoiceConnector are all "
                             "scoped to arn:aws:chime:<region>:<account>:vc/*, "
                             "the broadest resource-level ARN they support -- "
                             "see the module docstring's 'IAM scoping' "

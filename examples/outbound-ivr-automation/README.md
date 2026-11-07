@@ -134,10 +134,24 @@ flowchart TB
   Connector are all available. This example is developed and tested in `us-east-1`.
 - Model access to `amazon.nova-2-5-sonic` granted in the Bedrock console for that
   Region (Bedrock model access is opt-in per account/Region).
-- Quota headroom for: two Amazon Connect instances (`OutboundIvrOfficeStack`'s mock
-  office, and `OutboundIvrStack`'s own evidence-team instance), one Chime SDK Voice
-  Connector, two Elastic IPs, and up to two claimed phone numbers (the mock office's
-  DID and the evidence team's DID). Default account quotas comfortably cover this.
+- Quota headroom for: one Amazon Connect instance (`OutboundIvrOfficeStack`'s mock
+  office, which also holds the evidence team's queue), one Chime SDK Voice Connector,
+  two Elastic IPs, and two claimed Connect phone numbers (the mock office's DID and
+  the evidence team's DID). Check Elastic IPs first: the default quota is 5 per Region.
+- A Chime SDK phone number for outbound caller ID. Chime rejects outbound calls whose
+  caller ID is not a number associated with the Voice Connector, and there is no
+  CloudFormation resource for ordering one, so order it once before deploying:
+
+  ```bash
+  aws chime-sdk-voice search-available-phone-numbers --country US --state NY \
+    --phone-number-type Local --max-results 5 --region "$OUTBOUND_IVR_REGION"
+  aws chime-sdk-voice create-phone-number-order --product-type VoiceConnector \
+    --e164-phone-numbers <one of the numbers above> --region "$OUTBOUND_IVR_REGION"
+  ```
+
+  Put it in `.env` as `CALLER_ID_NUMBER`. `OutboundIvrVoiceStack` associates it with
+  its own Voice Connector (never by force, so a number already used by another
+  connector is left alone) and releases it again on `cdk destroy`.
 - **This example places real PSTN calls and claims real phone numbers that cost money
   to hold.** Only ever point `FRONT_DESK_NUMBER`/`CALLER_ID_NUMBER` at numbers you own
   or have explicit permission to call, never a real third party's number. Claimed
@@ -172,7 +186,7 @@ account ID):
 | `OUTBOUND_IVR_REGION` | The Region to deploy into, e.g. `us-east-1`. Required. |
 | `FRONT_DESK_NUMBER` | The phone that plays the mock office's front desk, e.g. `+15555550100`. Must be a number you can answer. |
 | `AGENT_EMAIL` | Shared login email for the front-desk and escalation Connect agent users, e.g. `you@example.com`. Never a real address in source control. |
-| `CALLER_ID_NUMBER` (optional) | A Chime SDK number on your account to present as outbound caller ID. |
+| `CALLER_ID_NUMBER` | The Chime SDK number you ordered (see Prerequisites), presented as outbound caller ID. Required: Chime rejects outbound calls without it. |
 | `ALERT_EMAIL` (optional) | Where CloudWatch alarms email; AWS sends one confirmation link that must be clicked once. |
 | `EVIDENCE_MODE` (optional) | `direct` dials the evidence number straight into the call; `connect` (default) uses a Connect handoff-code queue. |
 | `MOCK_PROVIDER_FLOW_ID` (optional) | Only needed for `deploy_flow.sh`'s fast, CloudFormation-bypassing IVR-flow push. |
@@ -221,7 +235,9 @@ uv run python infrastructure/scripts/seed_cases.py
    it happens.
 4. **Answer as the front desk.** The office's Connect flow transfers the call to the
    front-desk queue, which rings the dashboard's embedded Contact Control Panel. Sign
-   that in once as `outbound-ivr-front-desk` and set yourself Available. Play the
+   that in once as `outbound-ivr-front-desk` and set yourself Available (its password
+   is in Secrets Manager: `aws secretsmanager get-secret-value --secret-id
+   outbound-ivr/front-desk-agent-password --query SecretString --output text`). Play the
    front desk: give the requested items when asked, confirm each read-back, or push
    back to see the agent escalate or ask for a colleague.
 5. **Watch and listen in.** "Monitor call" is always on (no flag or CIDR needed) and
@@ -234,6 +250,17 @@ Success looks like: the case moves from `pending` to a final outcome
 (`complete`/`escalated`/`handed_off`), the evidence page shows a transcript and a
 playable recording, and the events table shows the full `dtmf`/`heard`/`said`/`tool`
 sequence for the call.
+
+While the agent navigates the office's menu: the transcript of the menu prompts, the
+key it pressed (3, for providers and prior authorizations), and the live event stream,
+with Monitor on.
+
+![Live call page while the agent navigates the phone menu](docs/images/live-call-navigating-menu.png)
+
+After the front desk answers: all three requested items collected and confirmed, and
+the call's outcome recorded.
+
+![Live call page with all three evidence items collected](docs/images/live-call-evidence-complete.png)
 
 ## Cost
 
@@ -251,9 +278,10 @@ of the month the stacks are left deployed.
 | KMS customer-managed keys (data, cache) | $1/key/month x 2 | $2.00 |
 | Secrets Manager secrets (Voice Connector credentials, LiveKit API secret, cache AUTH token, front-desk password) | ~$0.40/secret/month x 4 | $1.60 |
 | Claimed phone numbers (mock office DID + evidence-team DID) | ~$1/number-month x 2 | $2.00 |
+| Chime SDK caller-ID number | ~$1/number-month x 1 | $1.00 |
 | CloudWatch (Container Insights, log groups, alarms) | demo-scale log volume | ~$8 |
 | S3 + CloudFront + DynamoDB (on-demand) + Cognito | all well under free-tier/low-volume pricing at this scale | ~$2 |
-| **Always-on subtotal** | | **~$92** |
+| **Always-on subtotal** | | **~$93** |
 | Amazon Nova 2.5 Sonic tokens | ~750 speech-input + 750 speech-output tokens/min (assumption) x 500 min: $0.003/1k in + $0.012/1k out, plus a small text-token share | ~$6 |
 | AgentCore Runtime vCPU/memory | ~1 vCPU + 2 GB for 500 min: $0.1276/vCPU-hr + $0.0169/GB-hr | ~$1.35 |
 | AgentCore Gateway tool invocations | ~500 calls x 5 tool calls x $0.000005 | <$0.01 |
@@ -261,7 +289,7 @@ of the month the stacks are left deployed.
 | Amazon Connect end-customer minutes (front-desk/queue leg) | $0.018/min x ~300 min (front-desk portion) | $5.40 |
 | Lambda + API Gateway (tools, dashboard API, polling) | low request volume | ~$1 |
 | **Per-use subtotal (100 calls/month)** | | **~$16** |
-| **Total** | | **~$108/month** |
+| **Total** | | **~$109/month** |
 
 The two biggest drivers are the seven **VPC interface endpoints** (about half the
 total, and the same cost whether the example handles one call or a thousand) and the
@@ -297,12 +325,22 @@ its own `cdk destroy` synth pass matches what was actually deployed. It:
    `OutboundIvrOfficeStack`, then `OutboundIvrVoiceStack`, including the Chime Voice
    Connector, its Elastic IPs, and both claimed phone numbers.
 
+Expect the first run to stop at `OutboundIvrStack`. When the AgentCore Runtime is
+deleted, its VPC network interfaces (interface type `agentic_ai`) keep its security
+group in use for a while: AgentCore removes them up to 8 hours later, and they cannot
+be deleted by hand. The script detects this, says so, and leaves the office and voice
+stacks in place (the LiveKit host still holds the voice stack's Elastic IP). Run
+`cleanup.sh --yes` again later; it picks up where it stopped.
+
 It always prints a "what this script cannot remove" section with the exact commands
 for the handful of things `cdk destroy` does not reach:
 
 - Implicit CloudWatch log groups for Lambda functions that have no explicit
   `logs.LogGroup` (the Chime/Connect custom-resource handler Lambdas).
 - AgentCore's own managed log groups under `/aws/bedrock-agentcore/...`.
+- The Chime SDK caller-ID number you ordered. Destroying the voice stack only
+  releases it from the Voice Connector; delete it from your inventory with
+  `aws chime-sdk-voice delete-phone-number --phone-number-id <+1 number>`.
 - A claimed Connect phone number that failed to auto-release (rare; normally
   `connect.CfnPhoneNumber` releases on delete with no `RETAIN`).
 - The CDK bootstrap asset bucket (`cdk-hnb659fds-assets-<account>-<region>`), which is

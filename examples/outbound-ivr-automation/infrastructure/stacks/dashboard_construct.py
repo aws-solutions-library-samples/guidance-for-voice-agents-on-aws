@@ -758,6 +758,7 @@ class DashboardConstruct:
         # so it gets a lower per-route throttle below, on top of every route's
         # default-stage throttle and Cognito JWT auth.
         start_call_route_key = "POST /api/calls"
+        start_call_routes: list[apigwv2.HttpRoute] = []
         for path, methods in (
             ("/api/cases", [apigwv2.HttpMethod.GET]),
             ("/api/cases/{id}", [apigwv2.HttpMethod.GET]),
@@ -767,7 +768,9 @@ class DashboardConstruct:
             ("/api/recordings/{call}", [apigwv2.HttpMethod.GET]),
             ("/api/calls", [apigwv2.HttpMethod.POST]),
         ):
-            http_api.add_routes(path=path, methods=methods, integration=integration)
+            routes = http_api.add_routes(path=path, methods=methods, integration=integration)
+            if path == "/api/calls" and apigwv2.HttpMethod.POST in methods:
+                start_call_routes.extend(routes)
 
         # ------------------------------------------------------------------
         # Throttling: every route is both authenticated (default_authorizer,
@@ -796,6 +799,10 @@ class DashboardConstruct:
                 }
             },
         )
+        # API Gateway rejects RouteSettings for a route that does not exist yet
+        # ("Unable to find Route by key"), so the stage waits for that route.
+        for route in start_call_routes:
+            default_stage.node.add_dependency(route)
         # `DefaultStage` is a sibling of `http_api`, not one of its children (it has
         # to be, to carry a throttle prop `HttpApi` itself doesn't expose), so the
         # http_api suppression above (apply_to_children=True) never reaches it --

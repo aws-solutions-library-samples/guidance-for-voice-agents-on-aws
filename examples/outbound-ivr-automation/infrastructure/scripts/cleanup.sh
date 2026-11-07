@@ -143,7 +143,12 @@ actually exercised that path.
          aws logs delete-log-group --region $REGION --log-group-name "\$lg"
        done
 
-3. Claimed phone numbers (the mock office DID and, if claimed, the evidence team's
+3. The Chime SDK caller-ID number in CALLER_ID_NUMBER. Destroying OutboundIvrVoiceStack
+   only releases it from the Voice Connector; it stays in your account (and on your
+   bill) until you delete it:
+     aws chime-sdk-voice delete-phone-number --region $REGION --phone-number-id "$CALLER_ID_NUMBER"
+
+4. Claimed phone numbers (the mock office DID and, if claimed, the evidence team's
    DID): each is a real \`connect.CfnPhoneNumber\` resource, so OutboundIvrOfficeStack's
    and OutboundIvrStack's own deletion above already releases them in the normal case.
    If either destroy above failed partway through, or a number still shows CLAIMED
@@ -152,7 +157,7 @@ actually exercised that path.
        --query 'ListPhoneNumbersSummaryList[].[PhoneNumber,PhoneNumberId]' --output table
      aws connect release-phone-number --region $REGION --phone-number-id <PhoneNumberId>
 
-4. CDK bootstrap assets: every \`cdk deploy\` of this app (container images, Lambda
+5. CDK bootstrap assets: every \`cdk deploy\` of this app (container images, Lambda
    bundles) uploads to the bootstrap staging bucket \`cdk-hnb659fds-assets-${ACCOUNT}-${REGION}\`,
    which none of the destroys above touch -- it is shared by every app in this
    account/Region, not owned by this example. Safe to leave; to reclaim the storage
@@ -181,7 +186,33 @@ echo "== 1/4 emptying buckets"
 empty_bucket "$artifacts_bucket"
 empty_bucket "$monitor_bucket"
 echo "== 2/4 destroying OutboundIvrStack"
-destroy_outbound_ivr
+if ! destroy_outbound_ivr; then
+  # The usual cause: the AgentCore Runtime's VPC network interfaces (interface type
+  # agentic_ai) still hold its security group. AgentCore removes them up to 8 hours
+  # after the Runtime is deleted, and nobody can delete them sooner.
+  vpcs=$(aws ec2 describe-vpcs --region "$REGION" --filters Name=tag:project,Values=outbound-ivr \
+    --query 'Vpcs[].VpcId' --output text)
+  agentic_enis=0
+  for vpc in $vpcs; do
+    n=$(aws ec2 describe-network-interfaces --region "$REGION" --filters "Name=vpc-id,Values=$vpc" \
+      --query "length(NetworkInterfaces[?InterfaceType=='agentic_ai'])" --output text)
+    agentic_enis=$((agentic_enis + n))
+  done
+  if [ "$agentic_enis" -gt 0 ]; then
+    cat >&2 <<EOF
+
+OutboundIvrStack could not finish deleting yet. $agentic_enis AgentCore Runtime network
+interface(s) (type agentic_ai) are still attached to the Runtime's security group.
+AgentCore removes them up to 8 hours after the Runtime is deleted, and they cannot be
+deleted by hand. The office and voice stacks are left as they are, because the LiveKit
+host still holds the voice stack's Elastic IP.
+
+Run this script again later (it is safe to re-run; it picks up where it stopped):
+  infrastructure/scripts/cleanup.sh --yes
+EOF
+  fi
+  exit 1
+fi
 echo "== 3/4 destroying OutboundIvrOfficeStack"
 destroy_office
 echo "== 4/4 destroying OutboundIvrVoiceStack"

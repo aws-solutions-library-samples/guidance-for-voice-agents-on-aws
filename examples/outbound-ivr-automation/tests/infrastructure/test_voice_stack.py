@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from stacks.voice_stack import (
     CHIME_VOICE_CONNECTOR_ARN_PATTERN,
     PARAM_CONNECTOR_ID,
@@ -257,3 +258,66 @@ def test_the_project_tag_is_frozen_at_its_deployed_value(voice_template) -> None
     import json
 
     assert '{"Key": "project", "Value": "outbound_ivr"}' not in json.dumps(voice_template.to_json())
+
+
+def _voice_template(context: dict[str, str]):
+    import aws_cdk as cdk
+    from aws_cdk.assertions import Template
+    from stacks.constants import ACCOUNT_ID, REGION
+    from stacks.voice_stack import VoiceStack
+
+    app = cdk.App(context=context)
+    stack = VoiceStack(
+        app, "CallerIdVoiceStack", env=cdk.Environment(account=ACCOUNT_ID, region=REGION)
+    )
+    return stack, Template.from_stack(stack)
+
+
+def test_caller_id_is_associated_with_this_voice_connector_before_termination() -> None:
+    """Chime only accepts a default caller ID that is associated with the same
+    Voice Connector, so the stack associates the number itself, never by force, and
+    the termination settings wait for it."""
+    _, template = _voice_template({"callerIdNumber": "+15555550102"})
+    associations = template.find_resources("Custom::ChimeCallerIdAssociation")
+    assert len(associations) == 1
+    ((assoc_id, assoc),) = associations.items()
+    payload = json.dumps(assoc["Properties"])
+    assert "associatePhoneNumbersWithVoiceConnector" in payload
+    assert '\\"ForceAssociate\\":false' in payload
+    assert "+15555550102" in payload
+    assert "disassociatePhoneNumbersFromVoiceConnector" in payload
+
+    ((_term_id, term),) = template.find_resources("Custom::ChimeVoiceConnectorTermination").items()
+    assert assoc_id in term.get("DependsOn", [])
+    assert "DefaultPhoneNumber" in json.dumps(term["Properties"])
+
+
+def test_without_caller_id_there_is_no_association_and_a_warning() -> None:
+    from aws_cdk.assertions import Annotations as AssertAnnotations
+    from aws_cdk.assertions import Match
+
+    stack, template = _voice_template({})
+    assert template.find_resources("Custom::ChimeCallerIdAssociation") == {}
+    AssertAnnotations.from_stack(stack).has_warning(
+        "*", Match.string_like_regexp("callerIdNumber is not set")
+    )
+
+
+@pytest.mark.parametrize("context", [{}, {"callerIdNumber": "+15555550102"}])
+def test_voice_stack_is_cdk_nag_clean(context: dict[str, str]) -> None:
+    """app.py runs AwsSolutionsChecks on every deploy; an unsuppressed finding fails
+    the deploy, so check the stack the same way here, with and without a caller ID."""
+    import aws_cdk as cdk
+    from aws_cdk.assertions import Annotations as AssertAnnotations
+    from aws_cdk.assertions import Match
+    from cdk_nag import AwsSolutionsChecks
+    from stacks.constants import ACCOUNT_ID, REGION
+    from stacks.voice_stack import VoiceStack
+
+    app = cdk.App(context=context)
+    stack = VoiceStack(app, "NagVoiceStack", env=cdk.Environment(account=ACCOUNT_ID, region=REGION))
+    cdk.Aspects.of(app).add(AwsSolutionsChecks())
+    errors = AssertAnnotations.from_stack(stack).find_error(
+        "*", Match.string_like_regexp("AwsSolutions-.*")
+    )
+    assert errors == [], [e.entry.data for e in errors]
