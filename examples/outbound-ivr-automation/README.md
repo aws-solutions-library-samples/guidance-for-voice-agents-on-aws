@@ -70,6 +70,10 @@ flowchart TB
     runtime -- "transfer_to_team / escalate" --> evi
 ```
 
+The same architecture with AWS service icons, and the seven steps of a call ([draw.io source](docs/diagrams/outbound-ivr-architecture.drawio)):
+
+![Outbound IVR Automation architecture on AWS, with the seven steps of a call](docs/diagrams/outbound-ivr-architecture.png)
+
 1. An operator signs in to the Cognito-protected dashboard (CloudFront + S3) and picks
    a seeded case.
 2. The dashboard's HTTP API invokes the AgentCore Runtime, which places an outbound
@@ -114,6 +118,17 @@ flowchart TB
   subnets in the same VPC, the hop never leaves the VPC, and call audio itself is
   WebRTC (DTLS-SRTP, always encrypted) regardless. A production deployment should put
   TLS in front of LiveKit's signaling port.
+
+### Compliance
+
+This example uses synthetic data only: the patient, member ID, authorization reference,
+and provider office in the demo case are made up. It is not built or reviewed for real
+patient data. Adapting it to protected health information (PHI), including real call
+recordings and transcripts, requires using only HIPAA-eligible AWS services under a
+Business Associate Addendum (BAA) with AWS, plus your own HIPAA controls and review.
+Under the [shared responsibility model](https://aws.amazon.com/compliance/shared-responsibility-model/),
+that compliance is the customer's responsibility. See
+[HIPAA compliance on AWS](https://aws.amazon.com/compliance/hipaa-compliance/).
 
 ## Prerequisites
 

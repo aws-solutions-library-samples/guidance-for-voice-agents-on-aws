@@ -7,7 +7,7 @@
         <mxCell id="v2title" parent="1" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=top;fontColor=#1A2733;fontFamily=Helvetica;" value="A bidirectional voice agent built on AWS with Amazon Nova Sonic, Strands, and LiveKit" vertex="1">
           <mxGeometry height="32" width="1300" x="30" y="16" as="geometry" />
         </mxCell>
-        <mxCell id="v2subtitle" parent="1" style="text;html=1;fontSize=13;fontStyle=2;align=left;verticalAlign=top;fontColor=#5A6B7A;fontFamily=Helvetica;" value="Outbound IVR joins the call like any participant, navigates the phone menu, talks to the front desk, and can bring in a person for a warm handoff." vertex="1">
+        <mxCell id="v2subtitle" parent="1" style="text;html=1;fontSize=13;fontStyle=2;align=left;verticalAlign=top;fontColor=#5A6B7A;fontFamily=Helvetica;" value="The agent joins the call like any participant, navigates the phone menu, talks to the front desk, and can bring in a person for a warm handoff." vertex="1">
           <mxGeometry height="22" width="1200" x="30" y="50" as="geometry" />
         </mxCell>
         <mxCell id="v2rule" parent="1" style="line;strokeWidth=2;html=1;strokeColor=#FF9900;" value="" vertex="1">
@@ -259,31 +259,31 @@
         <mxCell id="v2stepb2" parent="v2stepsgroup" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0972D4;strokeColor=#FFFFFF;strokeWidth=1.5;fontColor=#FFFFFF;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="2" vertex="1">
           <mxGeometry height="24" width="24" x="16" y="158" as="geometry" />
         </mxCell>
-        <mxCell id="v2stept2" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;2. Outbound IVR joins the room&lt;/b&gt;&lt;br&gt;The AgentCore Runtime, in VPC mode, joins the call&#39;s LiveKit room over WebRTC.&lt;br&gt;LiveKit SIP dials out through the Chime Voice Connector, TLS signaling and SRTP media, from a fixed Elastic IP." vertex="1">
+        <mxCell id="v2stept2" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;2. The agent joins the room&lt;/b&gt;&lt;br&gt;The AgentCore Runtime, in VPC mode, joins the call&#39;s LiveKit room over WebRTC.&lt;br&gt;LiveKit SIP dials out through the Chime Voice Connector, TLS signaling and SRTP media, from a fixed Elastic IP." vertex="1">
           <mxGeometry height="99" width="400" x="50" y="155" as="geometry" />
         </mxCell>
         <mxCell id="v2stepb3" parent="v2stepsgroup" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0972D4;strokeColor=#FFFFFF;strokeWidth=1.5;fontColor=#FFFFFF;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="3" vertex="1">
           <mxGeometry height="24" width="24" x="16" y="266" as="geometry" />
         </mxCell>
-        <mxCell id="v2stept3" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;3. Navigate the menu&lt;/b&gt;&lt;br&gt;Outbound IVR listens to the recorded menu and presses keys as DTMF tones.&lt;br&gt;A key only counts if a heard menu option actually names it." vertex="1">
+        <mxCell id="v2stept3" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;3. Navigate the menu&lt;/b&gt;&lt;br&gt;The agent listens to the recorded menu and presses keys as DTMF tones.&lt;br&gt;A key only counts if a heard menu option actually names it." vertex="1">
           <mxGeometry height="99" width="400" x="50" y="263" as="geometry" />
         </mxCell>
         <mxCell id="v2stepb4" parent="v2stepsgroup" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0972D4;strokeColor=#FFFFFF;strokeWidth=1.5;fontColor=#FFFFFF;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="4" vertex="1">
           <mxGeometry height="24" width="24" x="16" y="374" as="geometry" />
         </mxCell>
-        <mxCell id="v2stept4" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;4. Talk to the front desk&lt;/b&gt;&lt;br&gt;Once transferred, Outbound IVR states its purpose.&lt;br&gt;It asks for each missing item one at a time, not all at once.&lt;br&gt;It reads each answer back to the front desk to confirm it.&lt;br&gt;If asked to hold, it waits quietly, then re-introduces itself." vertex="1">
+        <mxCell id="v2stept4" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;4. Talk to the front desk&lt;/b&gt;&lt;br&gt;Once transferred, The agent states its purpose.&lt;br&gt;It asks for each missing item one at a time, not all at once.&lt;br&gt;It reads each answer back to the front desk to confirm it.&lt;br&gt;If asked to hold, it waits quietly, then re-introduces itself." vertex="1">
           <mxGeometry height="99" width="400" x="50" y="371" as="geometry" />
         </mxCell>
         <mxCell id="v2stepb5" parent="v2stepsgroup" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0972D4;strokeColor=#FFFFFF;strokeWidth=1.5;fontColor=#FFFFFF;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="5" vertex="1">
           <mxGeometry height="24" width="24" x="16" y="482" as="geometry" />
         </mxCell>
-        <mxCell id="v2stept5" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;5. Record evidence&lt;/b&gt;&lt;br&gt;Outbound IVR records each confirmed item with its tools.&lt;br&gt;Events go to DynamoDB, the case record to S3." vertex="1">
+        <mxCell id="v2stept5" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;5. Record evidence&lt;/b&gt;&lt;br&gt;The agent records each confirmed item with its tools.&lt;br&gt;Events go to DynamoDB, the case record to S3." vertex="1">
           <mxGeometry height="99" width="400" x="50" y="479" as="geometry" />
         </mxCell>
         <mxCell id="v2stepb6" parent="v2stepsgroup" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0972D4;strokeColor=#FFFFFF;strokeWidth=1.5;fontColor=#FFFFFF;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="6" vertex="1">
           <mxGeometry height="24" width="24" x="16" y="590" as="geometry" />
         </mxCell>
-        <mxCell id="v2stept6" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;6. Hand off to a person&lt;/b&gt;&lt;br&gt;If the agent can&#39;t get the information it needs&amp;nbsp;it brings an Evidence team colleague into the same room, introduces them, and steps back.&lt;br&gt;If nobody answers within 30 seconds, Outbound IVR apologizes and escalates with a callback instead." vertex="1">
+        <mxCell id="v2stept6" parent="v2stepsgroup" style="text;html=1;align=left;verticalAlign=top;fontSize=11.5;fontColor=#2C3A47;fontFamily=Helvetica;whiteSpace=wrap;" value="&lt;b&gt;6. Hand off to a person&lt;/b&gt;&lt;br&gt;If the agent can&#39;t get the information it needs&amp;nbsp;it brings an Evidence team colleague into the same room, introduces them, and steps back.&lt;br&gt;If nobody answers within 30 seconds, the agent apologizes and escalates with a callback instead." vertex="1">
           <mxGeometry height="99" width="400" x="50" y="587" as="geometry" />
         </mxCell>
         <mxCell id="v2stepb7" parent="v2stepsgroup" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0972D4;strokeColor=#FFFFFF;strokeWidth=1.5;fontColor=#FFFFFF;fontStyle=1;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;" value="7" vertex="1">

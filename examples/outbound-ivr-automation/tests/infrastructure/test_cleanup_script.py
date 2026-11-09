@@ -19,10 +19,11 @@ def test_cleanup_script_exists_and_is_executable() -> None:
 
 
 def test_cleanup_script_has_valid_bash_syntax() -> None:
-    bash = shutil.which("bash")
-    assert bash, "bash not found on PATH"
-    result = subprocess.run(
-        [bash, "-n", str(SCRIPT)],
+    assert shutil.which("bash"), "bash not found on PATH"
+    # A fixed command run from the scripts folder: no part of it comes from a variable.
+    result = subprocess.run(  # nosec B603 - static argv, this repo's own script
+        ["bash", "-n", "cleanup.sh"],
+        cwd=SCRIPT.parent,
         capture_output=True,
         text=True,
         timeout=10,

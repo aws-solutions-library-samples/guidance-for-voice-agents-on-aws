@@ -8,6 +8,7 @@ keep every script on the shared list in app_context.sh.
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -53,15 +54,23 @@ def test_shared_context_carries_every_stack_requirement() -> None:
 
 
 def test_shared_context_appends_the_list_to_every_cdk_call() -> None:
-    bash = shutil.which("bash")
-    assert bash, "bash not found on PATH"
-    script = (
-        f"ROOT=/example AGENT_EMAIL=agent@example.com FRONT_DESK_NUMBER=+15555550100; "
-        f'source "{SCRIPTS / "app_context.sh"}"; '
-        'printf "%s\\n" "${app_ctx[@]}"'
-    )
-    result = subprocess.run(
-        [bash, "-c", script], capture_output=True, text=True, timeout=10, check=True
+    assert shutil.which("bash"), "bash not found on PATH"
+    # A fixed command run from the scripts folder; the inputs app_context.sh reads come
+    # in through the environment, so no part of the command comes from a variable.
+    env = {
+        **os.environ,
+        "ROOT": "/example",
+        "AGENT_EMAIL": "agent@example.com",
+        "FRONT_DESK_NUMBER": "+15555550100",
+    }
+    result = subprocess.run(  # nosec B603 - static argv, this repo's own script
+        ["bash", "-c", 'source ./app_context.sh && printf "%s\\n" "${app_ctx[@]}"'],
+        cwd=SCRIPTS,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=True,
     )
     args = result.stdout.splitlines()
     assert "agentEmail=agent@example.com" in args

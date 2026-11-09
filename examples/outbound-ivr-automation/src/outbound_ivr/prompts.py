@@ -27,7 +27,7 @@ CASE = {
     "patient_name": "Jordan Ellis",
     "patient_dob": "March 14th, 1979",
     "member_id": "LHP-4417-2290",
-    "auth_ref": "PA-2026-88431",
+    "auth_ref": "PA-2026-88431",  # nosemgrep: generic.secrets.gitleaks.generic-api-key - synthetic prior-auth reference, not a credential
     "procedure": "lumbar MRI with contrast, CPT 72149",
     "submitted_on": "September 29th",
     "return_fax": "(800) 555-0142",
