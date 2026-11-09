@@ -10,8 +10,8 @@ see the top-level README's "Deploy order". Everything here is tagged
 stack in this example, uses `RemovalPolicy.DESTROY` so `cdk destroy` removes it
 completely: both EIPs are released, and the Voice Connector custom resource below
 explicitly calls `DeleteVoiceConnector` on delete (deleting the connector also removes
-its termination settings and credentials, so those two don't need their own delete
-calls). `infrastructure/scripts/cleanup.sh` runs this stack's destroy last, since
+its termination credentials; the termination settings are deleted first, on their own,
+so the caller-ID number can be released before the connector goes). `infrastructure/scripts/cleanup.sh` runs this stack's destroy last, since
 livekit_stack.py's outbound trunk registration depends on this one's SSM parameters.
 
 Resources:
@@ -223,8 +223,9 @@ class VoiceStack(Stack):
                 ),
             ),
             # DeleteVoiceConnector, so `cdk destroy` actually removes it. Deleting the
-            # connector also removes its termination settings and credentials, so
-            # neither of those two resources below needs its own delete call.
+            # connector also removes its termination credentials. The termination
+            # settings are deleted on their own first (see that resource), because
+            # the caller-ID number cannot be released while it is their default.
             on_delete=cr.AwsSdkCall(
                 service="ChimeSDKVoice",
                 action="deleteVoiceConnector",
@@ -349,10 +350,16 @@ class VoiceStack(Stack):
             resource_type="Custom::ChimeVoiceConnectorTermination",
             install_latest_aws_sdk=True,
             removal_policy=RemovalPolicy.DESTROY,
-            # No on_delete: deleting the Voice Connector itself (this resource's
-            # DependsOn, below) removes its termination settings too, and
-            # CloudFormation deletes dependents like this one before the resource
-            # it depends on.
+            # Deletes the termination settings on destroy. CloudFormation deletes this
+            # resource before the caller-ID association and the Voice Connector it
+            # depends on, and Chime refuses to release a number that is still the
+            # termination's default caller ID ("Service received a bad request"), so
+            # the settings have to go first.
+            on_delete=cr.AwsSdkCall(
+                service="ChimeSDKVoice",
+                action="deleteVoiceConnectorTermination",
+                parameters={"VoiceConnectorId": voice_connector_id},
+            ),
             on_create=cr.AwsSdkCall(
                 service="ChimeSDKVoice",
                 action="putVoiceConnectorTermination",
@@ -372,7 +379,10 @@ class VoiceStack(Stack):
             policy=cr.AwsCustomResourcePolicy.from_statements(
                 [
                     iam.PolicyStatement(
-                        actions=["chime:PutVoiceConnectorTermination"],
+                        actions=[
+                            "chime:PutVoiceConnectorTermination",
+                            "chime:DeleteVoiceConnectorTermination",
+                        ],
                         resources=[CHIME_VOICE_CONNECTOR_ARN_PATTERN],
                     )
                 ]

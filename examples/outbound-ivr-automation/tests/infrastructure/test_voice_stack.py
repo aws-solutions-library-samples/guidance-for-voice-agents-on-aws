@@ -123,10 +123,9 @@ def test_termination_allows_only_the_two_pool_eips(voice_template) -> None:
     assert termination["CidrAllowedList"] == ["<token>/32", "<token>/32"], (
         "exactly two hosts (the pool's two EIPs), each as a /32"
     )
-    # No on_delete at all: deleting the Voice Connector itself (this resource's
-    # dependency) already removes its termination settings -- see
-    # stacks/voice_stack.py's module docstring.
-    assert "Delete" not in resource["Properties"]
+    # The delete call removes the termination settings before the caller-ID number is
+    # released; see test_termination_is_deleted_before_the_caller_id_is_released.
+    assert "deleteVoiceConnectorTermination" in json.dumps(resource["Properties"]["Delete"])
 
 
 def test_no_resolved_secret_value_in_any_custom_resource(voice_template) -> None:
@@ -321,3 +320,15 @@ def test_voice_stack_is_cdk_nag_clean(context: dict[str, str]) -> None:
         "*", Match.string_like_regexp("AwsSolutions-.*")
     )
     assert errors == [], [e.entry.data for e in errors]
+
+
+def test_termination_is_deleted_before_the_caller_id_is_released() -> None:
+    """Chime refuses to release a number that is still the termination's default
+    caller ID, so destroying the stack must delete the termination settings first.
+    CloudFormation deletes the termination before the association it depends on."""
+    _, template = _voice_template({"callerIdNumber": "+15555550102"})
+    ((_, term),) = template.find_resources("Custom::ChimeVoiceConnectorTermination").items()
+    delete_call = json.dumps(term["Properties"].get("Delete", ""))
+    assert "deleteVoiceConnectorTermination" in delete_call
+    (assoc_id,) = template.find_resources("Custom::ChimeCallerIdAssociation")
+    assert assoc_id in term.get("DependsOn", [])
