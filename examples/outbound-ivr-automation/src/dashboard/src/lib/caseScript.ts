@@ -19,7 +19,7 @@ const PATIENT_FIELDS: { key: keyof NonNullable<CaseRecord["case_summary"]>; labe
   { key: "patient_name", label: "Patient" },
   { key: "patient_dob", label: "Date of birth" },
   { key: "member_id", label: "Member ID" },
-  { key: "auth_ref", label: "Authorization reference" },
+  { key: "pa_reference", label: "Authorization reference" },
   { key: "procedure", label: "Procedure" },
 ]
 

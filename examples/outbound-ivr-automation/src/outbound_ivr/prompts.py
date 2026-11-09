@@ -27,7 +27,7 @@ CASE = {
     "patient_name": "Jordan Ellis",
     "patient_dob": "March 14th, 1979",
     "member_id": "LHP-4417-2290",
-    "auth_ref": "PA-2026-88431",  # nosemgrep: generic.secrets.gitleaks.generic-api-key - synthetic prior-auth reference, not a credential
+    "pa_reference": "PA-2026-88431",
     "procedure": "lumbar MRI with contrast, CPT 72149",
     "submitted_on": "September 29th",
     "return_fax": "(800) 555-0142",
@@ -69,14 +69,14 @@ Your job is to collect specific clinical information that is missing from a pend
 authorization request, so the request can be reviewed instead of denied.
 
 THE CASE
-- Authorization reference: {auth_ref}
+- Authorization reference: {pa_reference}
 - Patient: {patient_name}, date of birth {patient_dob}
 - Member ID: {member_id}
 - Ordering provider: {ordering_provider}
 - Requested service: {procedure}
 - Submitted on {submitted_on}, currently pending for missing documentation
 - Where records go: secure fax {return_fax}, or upload through {portal}. Always quote
-  the reference number {auth_ref} so the records match the request.
+  the reference number {pa_reference} so the records match the request.
 
 HOW TO OPEN THE CALL
 On your very first turn, in two or three sentences: say your name, say you are an \
@@ -332,7 +332,7 @@ def case_summary() -> dict:
         "patient_name": CASE["patient_name"],
         "patient_dob": CASE["patient_dob"],
         "member_id": CASE["member_id"],
-        "auth_ref": CASE["auth_ref"],
+        "pa_reference": CASE["pa_reference"],
         "procedure": CASE["procedure"],
         "ordering_provider": CASE["ordering_provider"],
         "submitted_on": CASE["submitted_on"],

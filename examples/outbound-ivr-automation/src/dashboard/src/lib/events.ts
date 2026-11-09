@@ -8,7 +8,7 @@ export type CaseSummary = {
   patient_name?: string
   patient_dob?: string
   member_id?: string
-  auth_ref?: string
+  pa_reference?: string
   procedure?: string
   ordering_provider?: string
   [key: string]: string | undefined
@@ -170,7 +170,7 @@ export type LevelSample = {
 
 export type CaseRecord = {
   id: string
-  auth_ref?: string
+  pa_reference?: string
   patient?: string
   started_at?: string
   items?: Record<string, { value?: string; confirmed?: boolean; at?: string }>

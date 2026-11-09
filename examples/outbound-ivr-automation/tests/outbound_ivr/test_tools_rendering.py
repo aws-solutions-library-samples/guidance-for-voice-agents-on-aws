@@ -19,7 +19,7 @@ def test_prior_auth_prompt_for_matches_the_demo_case():
             patient_name=prompts.CASE["patient_name"],
             patient_dob=prompts.CASE["patient_dob"],
             member_id=prompts.CASE["member_id"],
-            auth_ref=prompts.CASE["auth_ref"],
+            pa_reference=prompts.CASE["pa_reference"],
             procedure=prompts.CASE["procedure"],
             ordering_provider=prompts.CASE["ordering_provider"],
             submitted_on=prompts.CASE["submitted_on"],
@@ -46,7 +46,7 @@ def test_opening_line_for_matches_the_demo_case():
             "case-1",
             payer=prompts.CASE["payer"],
             patient_name=prompts.CASE["patient_name"],
-            auth_ref=prompts.CASE["auth_ref"],
+            pa_reference=prompts.CASE["pa_reference"],
             # The opening now asks "have I reached <office>", so the office name is
             # part of what has to match.
             provider_office=prompts.CASE["provider_office"],

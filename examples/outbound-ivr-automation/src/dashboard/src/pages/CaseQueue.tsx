@@ -122,8 +122,8 @@ export function CaseQueue() {
                     <TableCell className="max-w-0 truncate font-medium" title={c.patient_name ?? c.case_id}>
                       {c.patient_name ?? c.case_id}
                     </TableCell>
-                    <TableCell className="hidden max-w-0 truncate md:table-cell" title={c.auth_ref ?? "—"}>
-                      {c.auth_ref ?? "—"}
+                    <TableCell className="hidden max-w-0 truncate md:table-cell" title={c.pa_reference ?? "—"}>
+                      {c.pa_reference ?? "—"}
                     </TableCell>
                     <TableCell className="max-w-0 truncate" title={c.procedure ?? "—"}>
                       {c.procedure ?? "—"}

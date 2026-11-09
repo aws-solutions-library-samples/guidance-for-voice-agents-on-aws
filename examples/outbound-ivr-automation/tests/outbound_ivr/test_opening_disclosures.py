@@ -35,7 +35,7 @@ def test_transfer_note_names_queue_announcements_as_recordings():
 # information. The line is split, and the half that names the patient waits.
 # --------------------------------------------------------------------------
 
-_PHI_FIELDS = ("patient_name", "patient_dob", "member_id", "auth_ref")
+_PHI_FIELDS = ("patient_name", "patient_dob", "member_id", "pa_reference")
 
 
 def test_the_first_line_names_nobody():
@@ -60,7 +60,7 @@ def test_the_prompt_gates_the_disclosure_on_a_confirming_reply():
 
 def test_case_driven_opening_also_names_nobody():
     """The dashboard-driven path renders from a case dict, not prompts.CASE."""
-    case = dict(prompts.CASE, patient_name="Other Person", auth_ref="PA-OTHER-1")
+    case = dict(prompts.CASE, patient_name="Other Person", pa_reference="PA-OTHER-1")
     line = rendering.opening_line_for(case)
     assert "Other Person" not in line
     assert "PA-OTHER-1" not in line

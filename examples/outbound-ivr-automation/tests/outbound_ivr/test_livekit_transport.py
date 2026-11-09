@@ -362,7 +362,7 @@ async def test_handshake_falls_back_to_demo_default_case(monkeypatch):
     await transport.handshake()
 
     assert transport.mode == "full_call"
-    assert transport.case_id == prompts.CASE["auth_ref"]
+    assert transport.case_id == prompts.CASE["pa_reference"]
 
 
 async def test_handshake_adopts_first_participant_when_no_identity_configured(monkeypatch):

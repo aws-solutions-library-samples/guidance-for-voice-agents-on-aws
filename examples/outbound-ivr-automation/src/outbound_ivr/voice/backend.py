@@ -197,7 +197,7 @@ def _seed_case_store(case_id: str) -> CaseStore:
             patient_name=prompts.CASE["patient_name"],
             patient_dob=prompts.CASE["patient_dob"],
             member_id=prompts.CASE["member_id"],
-            auth_ref=prompts.CASE["auth_ref"],
+            pa_reference=prompts.CASE["pa_reference"],
             procedure=prompts.CASE["procedure"],
             submitted_on=prompts.CASE["submitted_on"],
             return_fax=prompts.CASE["return_fax"],
@@ -218,7 +218,7 @@ class LocalBackend(IntakeBackend):
         case_id: str | None = None,
     ) -> None:
         self._record = record
-        self._case_id = case_id or prompts.CASE["auth_ref"]
+        self._case_id = case_id or prompts.CASE["pa_reference"]
         self._store = _seed_case_store(self._case_id)
 
     async def record_item(self, *, case_id, call, key, value, confirmed) -> None:
@@ -393,7 +393,7 @@ class GatewayBackend(IntakeBackend):
         mcp_client_factory: Callable[[str], Any] | None = None,
         case_store_factory: Callable[[], CaseStore] | None = None,
     ) -> None:
-        self._case_id = case_id or prompts.CASE["auth_ref"]
+        self._case_id = case_id or prompts.CASE["pa_reference"]
         self._local = LocalBackend(record, case_id)
         self._mcp_client_factory = mcp_client_factory or self._default_mcp_client_factory
         # Read-only: GetItem on outbound-ivr-cases (and outbound-ivr-offices, via business.load_case)

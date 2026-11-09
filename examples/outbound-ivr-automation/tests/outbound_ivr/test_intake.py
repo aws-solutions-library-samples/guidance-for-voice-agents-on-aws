@@ -7,13 +7,13 @@ def test_a_record_tracks_the_called_cases_checklist_not_the_demo_case():
     intake.use_case(
         record,
         {
-            "auth_ref": "PA-2026-00001",
+            "pa_reference": "PA-2026-00001",
             "patient_name": "Test Patient",
             "missing_items": [{"key": "diagnosis"}, {"key": "prior_visits"}],
         },
     )
     assert intake.item_keys(record) == ["diagnosis", "prior_visits"]
-    assert record["auth_ref"] == "PA-2026-00001" and record["patient"] == "Test Patient"
+    assert record["pa_reference"] == "PA-2026-00001" and record["patient"] == "Test Patient"
     intake.record_item(record, "diagnosis", "x", True)
     intake.record_item(record, "prior_visits", "4", True)
     assert intake.complete(record, "done")["type"] == "complete"

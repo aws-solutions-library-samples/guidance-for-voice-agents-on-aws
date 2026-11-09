@@ -248,7 +248,7 @@ def handle_get_case(event: dict) -> dict:
 #
 # Editable fields (strings only, trimmed, max 200 chars; unknown fields -> 400):
 # status (one of pending/queued/calling/complete/escalated), patient_name,
-# patient_dob, member_id, auth_ref, procedure, payer, ordering_provider -- see
+# patient_dob, member_id, pa_reference, procedure, payer, ordering_provider -- see
 # `outbound_ivr.tools.store.default_case` for the item shape this allowlist is drawn from.
 #
 # reset=true: status -> "pending", attempts -> 0, and REMOVEs outcome, current_call,
@@ -275,7 +275,7 @@ EDITABLE_STRING_FIELDS = {
     "patient_name",
     "patient_dob",
     "member_id",
-    "auth_ref",
+    "pa_reference",
     "procedure",
     "payer",
     "ordering_provider",

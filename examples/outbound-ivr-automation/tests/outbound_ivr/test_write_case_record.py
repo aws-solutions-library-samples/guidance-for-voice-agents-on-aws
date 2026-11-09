@@ -1,7 +1,7 @@
 """`write_case_record`: `OUTBOUND_IVR_ARTIFACTS_BUCKET` set writes to S3 keyed by `case_id`
-(`cases/<case_id>/<call>.json`), not `auth_ref`, because the dashboard API
+(`cases/<case_id>/<call>.json`), not `pa_reference`, because the dashboard API
 (lambdas/api/handler.py) lists `cases/<case_id>/` to find a case's calls. Without the
-bucket set, it falls back to `runs/cases/<auth_ref>-<call>.json` on local disk.
+bucket set, it falls back to `runs/cases/<pa_reference>-<call>.json` on local disk.
 """
 
 import json
@@ -21,11 +21,11 @@ class _Log:
 def _state(case_id: str | None) -> agent.CallState:
     state = agent.CallState(call_uuid="call-1", mode="intake", log=_Log(), case_id=case_id)
     state.record = intake.new_record()
-    state.record["auth_ref"] = "PA-2026-88431"
+    state.record["pa_reference"] = "PA-2026-88431"
     return state
 
 
-def test_without_a_bucket_writes_under_runs_cases_by_auth_ref(tmp_path, monkeypatch):
+def test_without_a_bucket_writes_under_runs_cases_by_pa_reference(tmp_path, monkeypatch):
     monkeypatch.setattr(agent, "RUNS", tmp_path)
     monkeypatch.delenv("OUTBOUND_IVR_ARTIFACTS_BUCKET", raising=False)
     state = _state(case_id="some-other-case-id")
@@ -34,7 +34,7 @@ def test_without_a_bucket_writes_under_runs_cases_by_auth_ref(tmp_path, monkeypa
 
     out = tmp_path / "cases" / "PA-2026-88431-call-1.json"
     assert out.exists()
-    assert json.loads(out.read_text())["auth_ref"] == "PA-2026-88431"
+    assert json.loads(out.read_text())["pa_reference"] == "PA-2026-88431"
 
 
 def test_with_a_bucket_writes_to_s3_keyed_by_case_id(monkeypatch):
@@ -56,10 +56,10 @@ def test_with_a_bucket_writes_to_s3_keyed_by_case_id(monkeypatch):
             .read()
         )
 
-    assert json.loads(body)["auth_ref"] == "PA-2026-88431"
+    assert json.loads(body)["pa_reference"] == "PA-2026-88431"
 
 
-def test_with_a_bucket_falls_back_to_auth_ref_without_a_case_id(monkeypatch):
+def test_with_a_bucket_falls_back_to_pa_reference_without_a_case_id(monkeypatch):
     """No case_id resolved (shouldn't normally happen -- transports always set one --
     but the key must still be sane rather than literally 'cases/None/...')."""
     monkeypatch.setenv("OUTBOUND_IVR_ARTIFACTS_BUCKET", "outbound-ivr-artifacts-test")

@@ -23,7 +23,7 @@ const TEXT_FIELDS: { key: keyof EditableCaseFields; label: string }[] = [
   { key: "patient_name", label: "Patient name" },
   { key: "patient_dob", label: "Patient DOB" },
   { key: "member_id", label: "Member ID" },
-  { key: "auth_ref", label: "Auth ref" },
+  { key: "pa_reference", label: "Auth ref" },
   { key: "procedure", label: "Procedure" },
   { key: "payer", label: "Payer" },
   { key: "ordering_provider", label: "Ordering provider" },

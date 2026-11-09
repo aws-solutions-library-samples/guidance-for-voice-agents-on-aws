@@ -31,14 +31,14 @@ describe("useCaseScript", () => {
 
   it("falls back to the fixed demo script in local mode even with a case summary", () => {
     awsFlag = false
-    const { result } = renderHook(() => useCaseScript({ auth_ref: "PA-90112" }))
+    const { result } = renderHook(() => useCaseScript({ pa_reference: "PA-90112" }))
     expect(result.current).toBe(FRONT_DESK_SCRIPT)
     expect(getCasesMock).not.toHaveBeenCalled()
   })
 
-  it("resolves the case by auth_ref and builds its script", async () => {
+  it("resolves the case by pa_reference and builds its script", async () => {
     getCasesMock.mockResolvedValue([
-      { case_id: "case-90112", status: "pending", attempts: 0, outcome: null, updated_at: "", auth_ref: "PA-90112" },
+      { case_id: "case-90112", status: "pending", attempts: 0, outcome: null, updated_at: "", pa_reference: "PA-90112" },
     ])
     getCaseMock.mockResolvedValue({
       id: "case-90112",
@@ -46,7 +46,7 @@ describe("useCaseScript", () => {
       checklist: [{ key: "injury_date", label: "Date of injury", answer: "Twisted it playing soccer." }],
     })
 
-    const { result } = renderHook(() => useCaseScript({ auth_ref: "PA-90112" }))
+    const { result } = renderHook(() => useCaseScript({ pa_reference: "PA-90112" }))
 
     await waitFor(() => expect(result.current).not.toBe(FRONT_DESK_SCRIPT))
 
@@ -55,10 +55,10 @@ describe("useCaseScript", () => {
     expect(line?.text).toBe('"Morgan Reyes"')
   })
 
-  it("falls back to the fixed demo script when no case matches the auth_ref", async () => {
-    getCasesMock.mockResolvedValue([{ case_id: "other", status: "pending", attempts: 0, outcome: null, updated_at: "", auth_ref: "PA-OTHER" }])
+  it("falls back to the fixed demo script when no case matches the pa_reference", async () => {
+    getCasesMock.mockResolvedValue([{ case_id: "other", status: "pending", attempts: 0, outcome: null, updated_at: "", pa_reference: "PA-OTHER" }])
 
-    const { result } = renderHook(() => useCaseScript({ auth_ref: "PA-90112" }))
+    const { result } = renderHook(() => useCaseScript({ pa_reference: "PA-90112" }))
 
     await waitFor(() => expect(getCasesMock).toHaveBeenCalled())
     expect(result.current).toBe(FRONT_DESK_SCRIPT)
@@ -68,7 +68,7 @@ describe("useCaseScript", () => {
   it("falls back to the fixed demo script when the fetch fails", async () => {
     getCasesMock.mockRejectedValue(new Error("network error"))
 
-    const { result } = renderHook(() => useCaseScript({ auth_ref: "PA-90112" }))
+    const { result } = renderHook(() => useCaseScript({ pa_reference: "PA-90112" }))
 
     await waitFor(() => expect(getCasesMock).toHaveBeenCalled())
     expect(result.current).toBe(FRONT_DESK_SCRIPT)

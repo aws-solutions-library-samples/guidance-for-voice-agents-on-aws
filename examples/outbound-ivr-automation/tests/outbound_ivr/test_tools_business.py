@@ -119,7 +119,7 @@ def test_load_case_shaped_like_prompts_case(store):
         office_id="office-1",
         payer="Example Health Plan",
         patient_name="Jordan Ellis",
-        auth_ref="PA-88431",
+        pa_reference="PA-88431",
     )
     store.put_case(case)
     loaded = business.load_case(store, "case-1")
@@ -151,7 +151,7 @@ def test_load_case_never_copies_an_answer_field_into_the_rendered_prompt(store):
             patient_name="Jordan Ellis",
             patient_dob="March 14th, 1979",
             member_id="LHP-4417-2290",
-            auth_ref="PA-88431",
+            pa_reference="PA-88431",
             procedure="lumbar MRI with contrast, CPT 72149",
             provider_office="AnyCompany Medical Group",
             ordering_provider="Dr. Priya Raman",

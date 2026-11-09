@@ -5,7 +5,7 @@ const FIELDS: [keyof CaseSummary, string][] = [
   ["provider_office", "Calling"],
   ["patient_name", "Patient"],
   ["member_id", "Member ID"],
-  ["auth_ref", "Auth ref"],
+  ["pa_reference", "Auth ref"],
   ["procedure", "Requested"],
 ]
 

@@ -9,29 +9,29 @@ import type { CaseSummary } from "@/lib/events"
 import { buildCaseScript } from "@/lib/caseScript"
 import { FRONT_DESK_SCRIPT, type ScriptSection } from "@/lib/frontDeskScript"
 
-/** `getCases` returns every case's own `auth_ref`, which the live call's own
- * `caseSummary.auth_ref` (set from the `ready` event) can be matched against to find
+/** `getCases` returns every case's own `pa_reference`, which the live call's own
+ * `caseSummary.pa_reference` (set from the `ready` event) can be matched against to find
  * that case's `case_id` -- the id `getCase` needs, and the one piece of this round
  * trip nothing else on the Live call page already carries. */
-async function findCaseIdByAuthRef(authRef: string): Promise<string | null> {
+async function findCaseIdByPaReference(paReference: string): Promise<string | null> {
   const cases = await getCases()
-  return cases.find((c) => c.auth_ref === authRef)?.case_id ?? null
+  return cases.find((c) => c.pa_reference === paReference)?.case_id ?? null
 }
 
 export function useCaseScript(caseSummary: CaseSummary | undefined): ScriptSection[] {
-  const authRef = isAws ? caseSummary?.auth_ref : undefined
+  const paReference = isAws ? caseSummary?.pa_reference : undefined
   const [sections, setSections] = useState<ScriptSection[]>(FRONT_DESK_SCRIPT)
 
   useEffect(() => {
-    if (!authRef) {
+    if (!paReference) {
       setSections(FRONT_DESK_SCRIPT)
       return
     }
     let cancelled = false
     void (async () => {
       try {
-        const caseId = await findCaseIdByAuthRef(authRef)
-        if (!caseId) throw new Error("no case matches this call's auth_ref")
+        const caseId = await findCaseIdByPaReference(paReference)
+        if (!caseId) throw new Error("no case matches this call's pa_reference")
         const record = await getCase(caseId)
         if (!cancelled) setSections(buildCaseScript(record))
       } catch {
@@ -41,7 +41,7 @@ export function useCaseScript(caseSummary: CaseSummary | undefined): ScriptSecti
     return () => {
       cancelled = true
     }
-  }, [authRef])
+  }, [paReference])
 
   return sections
 }

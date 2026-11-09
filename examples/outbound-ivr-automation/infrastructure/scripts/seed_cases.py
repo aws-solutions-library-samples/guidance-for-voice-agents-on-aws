@@ -39,7 +39,7 @@ if not REGION:
     raise RuntimeError("set OUTBOUND_IVR_REGION to the Region the stacks are deployed to")
 
 DEMO_OFFICE_ID = "anycompany-medical-group"
-DEMO_CASE_ID = f"demo-{prompts.CASE['auth_ref'].lower()}"
+DEMO_CASE_ID = f"demo-{prompts.CASE['pa_reference'].lower()}"
 
 # Short, synthetic front-desk answers for the demo case's three missing items -- the
 # same lines dashboard/src/lib/frontDeskScript.ts has always shown for Sam to read
@@ -76,7 +76,7 @@ def demo_case() -> dict:
         patient_name=prompts.CASE["patient_name"],
         patient_dob=prompts.CASE["patient_dob"],
         member_id=prompts.CASE["member_id"],
-        auth_ref=prompts.CASE["auth_ref"],
+        pa_reference=prompts.CASE["pa_reference"],
         procedure=prompts.CASE["procedure"],
         ordering_provider=prompts.CASE["ordering_provider"],
         office_id=DEMO_OFFICE_ID,
@@ -391,12 +391,12 @@ _EXTRA_CASES = [
 def extra_cases() -> list[dict]:
     return [
         default_case(
-            f"case-{auth_ref.lower()}",
+            f"case-{pa_reference.lower()}",
             payer=prompts.CASE["payer"],
             patient_name=name,
             patient_dob=dob,
             member_id=member_id,
-            auth_ref=auth_ref,
+            pa_reference=pa_reference,
             procedure=procedure,
             ordering_provider=provider,
             office_id=DEMO_OFFICE_ID,
@@ -406,7 +406,7 @@ def extra_cases() -> list[dict]:
             missing_items=items,
             status="pending",
         )
-        for name, dob, member_id, auth_ref, procedure, provider, items in _EXTRA_CASES
+        for name, dob, member_id, pa_reference, procedure, provider, items in _EXTRA_CASES
     ]
 
 

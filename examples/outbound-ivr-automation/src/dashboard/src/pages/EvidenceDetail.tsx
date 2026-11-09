@@ -22,7 +22,7 @@ const HEADER_FIELDS: [string, string][] = [
   ["patient_name", "Patient"],
   ["patient_dob", "Date of birth"],
   ["member_id", "Member ID"],
-  ["auth_ref", "Auth reference"],
+  ["pa_reference", "Auth reference"],
   ["procedure", "Procedure"],
   ["ordering_provider", "Ordering provider"],
 ]
@@ -72,7 +72,7 @@ export function EvidenceDetail() {
         <Card>
           <CardHeader>
             <h1 className="text-lg font-bold">
-              {summary.auth_ref ?? record.auth_ref} — {summary.patient_name ?? record.patient}
+              {summary.pa_reference ?? record.pa_reference} — {summary.patient_name ?? record.patient}
             </h1>
             <p className="text-sm text-muted-foreground">started {fmtTime(record.started_at)}</p>
           </CardHeader>

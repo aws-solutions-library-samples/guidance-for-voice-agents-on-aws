@@ -9,7 +9,7 @@ function makeRecord(overrides: Partial<CaseRecord> = {}): CaseRecord {
       patient_name: "Morgan Reyes",
       patient_dob: "July 2nd, 1985",
       member_id: "LHP-5521-0193",
-      auth_ref: "PA-90112",
+      pa_reference: "PA-90112",
       procedure: "knee MRI without contrast, CPT 73721",
     },
     checklist: [

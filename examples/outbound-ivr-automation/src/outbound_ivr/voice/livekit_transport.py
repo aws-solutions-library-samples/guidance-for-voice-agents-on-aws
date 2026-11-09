@@ -684,7 +684,7 @@ class LiveKitTransport(Transport):
             meta.get("case_id")
             or attrs.get("case_id")
             or os.environ.get("OUTBOUND_IVR_CASE_ID")
-            or prompts.CASE["auth_ref"]
+            or prompts.CASE["pa_reference"]
         )
         record = self._resolve_bool(meta.get("record"), attrs.get("record"), default=True)
         return mode, case_id, record

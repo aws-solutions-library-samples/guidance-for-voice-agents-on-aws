@@ -11,7 +11,7 @@ export type QueuedCase = {
   outcome: CaseRecord["outcome"] | null
   updated_at: string
   patient_name?: string
-  auth_ref?: string
+  pa_reference?: string
   procedure?: string
   [key: string]: unknown
 }
@@ -83,7 +83,7 @@ export type EditableCaseFields = Partial<{
   patient_name: string
   patient_dob: string
   member_id: string
-  auth_ref: string
+  pa_reference: string
   procedure: string
   payer: string
   ordering_provider: string
@@ -109,7 +109,7 @@ type AwsCaseItem = {
   patient_name?: string
   patient_dob?: string
   member_id?: string
-  auth_ref?: string
+  pa_reference?: string
   procedure?: string
   ordering_provider?: string
   missing_items?: { key: string; label?: string; question?: string; answer?: string }[]
@@ -151,7 +151,7 @@ async function adaptAwsCase(item: AwsCaseItem): Promise<CaseRecord> {
   }
   return {
     id: item.case_id,
-    auth_ref: item.auth_ref,
+    pa_reference: item.pa_reference,
     patient: item.patient_name,
     // The record's own `started_at` (when this call attempt began) beats the case
     // item's `updated_at` (last time anything touched the case row) for "started".
@@ -166,7 +166,7 @@ async function adaptAwsCase(item: AwsCaseItem): Promise<CaseRecord> {
       patient_name: item.patient_name,
       patient_dob: item.patient_dob,
       member_id: item.member_id,
-      auth_ref: item.auth_ref,
+      pa_reference: item.pa_reference,
       procedure: item.procedure,
       ordering_provider: item.ordering_provider,
     },

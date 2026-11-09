@@ -220,10 +220,10 @@ def test_transfer_to_team_no_answer_falls_back_to_escalate(monkeypatch):
 
 async def test_local_backend_transfer_to_team_records_bookkeeping_and_business_outcome():
     record = intake.new_record()
-    backend = LocalBackend(record, case_id=record["auth_ref"])
+    backend = LocalBackend(record, case_id=record["pa_reference"])
 
     entry = await backend.transfer_to_team(
-        case_id=record["auth_ref"],
+        case_id=record["pa_reference"],
         call="call-1",
         reason="needs a supervisor",
         summary="PT dates missing",
@@ -238,16 +238,16 @@ async def test_local_backend_transfer_to_team_records_bookkeeping_and_business_o
 
 async def test_local_backend_mark_handoff_joined_sets_the_case_outcome():
     record = intake.new_record()
-    backend = LocalBackend(record, case_id=record["auth_ref"])
+    backend = LocalBackend(record, case_id=record["pa_reference"])
     await backend.transfer_to_team(
-        case_id=record["auth_ref"],
+        case_id=record["pa_reference"],
         call="call-1",
         reason="needs a supervisor",
         summary="PT dates missing",
     )
 
     outcome = await backend.mark_handoff_joined(
-        case_id=record["auth_ref"],
+        case_id=record["pa_reference"],
         call="call-1",
         reason="needs a supervisor",
         summary="PT dates missing",
@@ -259,7 +259,7 @@ async def test_local_backend_mark_handoff_joined_sets_the_case_outcome():
     assert record["outcome"] == outcome
     # The business-rule case store (the same path record_item/escalate/complete go
     # through) also carries the final "handed_off" outcome, not just the local record.
-    case = backend._store.get_case(record["auth_ref"])
+    case = backend._store.get_case(record["pa_reference"])
     assert case["outcome"]["type"] == "handed_off"
     assert case["outcome"]["joined_identity"] == "team-abc"
     assert case["status"] == "handed off"

@@ -90,7 +90,7 @@ two, or `400`.
 
 **`fields`**: an object of `{field: "new value"}`. Editable fields: `status` (one
 of `pending`, `queued`, `calling`, `complete`, `escalated`), `patient_name`,
-`patient_dob`, `member_id`, `auth_ref`, `procedure`, `payer`, `ordering_provider` --
+`patient_dob`, `member_id`, `pa_reference`, `procedure`, `payer`, `ordering_provider` --
 the string fields on `outbound_ivr.tools.store.default_case` that make sense to correct by
 hand (not `case_id`, not the structured/derived `missing_items`, `results`,
 `attempts`, `outcome`, `office_id`, `updated_at`). Every value must be a string,

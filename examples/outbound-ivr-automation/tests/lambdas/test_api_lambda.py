@@ -124,7 +124,7 @@ def aws(monkeypatch):
             default_case(
                 "case-1",
                 patient_name="Jordan Ellis",
-                auth_ref="PA-1",
+                pa_reference="PA-1",
                 office_id="office-1",
                 status="pending",
                 missing_items=[{"key": "physical_therapy", "label": "PT", "question": "dates"}],

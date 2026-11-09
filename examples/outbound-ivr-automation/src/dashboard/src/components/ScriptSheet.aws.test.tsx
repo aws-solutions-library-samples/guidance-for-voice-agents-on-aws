@@ -24,18 +24,18 @@ describe("ScriptSheet (case-driven script)", () => {
       },
     ])
 
-    render(<ScriptSheet caseSummary={{ auth_ref: "PA-90112" }} />)
+    render(<ScriptSheet caseSummary={{ pa_reference: "PA-90112" }} />)
     fireEvent.click(screen.getByRole("button", { name: /script/i }))
 
     expect(screen.getByText('"Morgan Reyes"')).toBeTruthy()
     expect(screen.getByText(/Date of injury/)).toBeTruthy()
-    expect(useCaseScriptMock).toHaveBeenCalledWith({ auth_ref: "PA-90112" })
+    expect(useCaseScriptMock).toHaveBeenCalledWith({ pa_reference: "PA-90112" })
   })
 
   it("renders the fixed demo script when useCaseScript falls back to it", () => {
     useCaseScriptMock.mockReturnValue(FRONT_DESK_SCRIPT)
 
-    render(<ScriptSheet caseSummary={{ auth_ref: "PA-90112" }} />)
+    render(<ScriptSheet caseSummary={{ pa_reference: "PA-90112" }} />)
     fireEvent.click(screen.getByRole("button", { name: /script/i }))
 
     expect(screen.getByText(/AnyCompany Medical, this is Sam/)).toBeTruthy()

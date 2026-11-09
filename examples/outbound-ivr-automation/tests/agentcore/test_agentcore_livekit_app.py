@@ -489,7 +489,7 @@ def test_evaluation_attributes_carry_the_task_and_the_call(monkeypatch):
         case={
             "provider_office": "AnyCompany Medical Group",
             "payer": "Example Health Plan",
-            "auth_ref": "PA-1",
+            "pa_reference": "PA-1",
             "patient_name": "Pat Example",
             "missing_items": [{"key": "mri_date", "label": "MRI date"}, {"key": "bmi"}],
         },

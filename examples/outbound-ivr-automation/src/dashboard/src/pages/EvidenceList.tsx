@@ -38,7 +38,7 @@ export function EvidenceList() {
           (c) =>
             ({
               id: c.case_id,
-              auth_ref: c.auth_ref,
+              pa_reference: c.pa_reference,
               patient: c.patient_name as string | undefined,
               started_at: c.updated_at,
               outcome: c.outcome,
@@ -78,7 +78,7 @@ export function EvidenceList() {
             return (
               <li key={c.id} className="rounded-md border border-border bg-card px-4 py-3">
                 <Link to={`/evidence/${encodeURIComponent(c.id)}`} className="font-bold text-primary hover:underline">
-                  {c.auth_ref} — {c.patient}
+                  {c.pa_reference} — {c.patient}
                 </Link>
                 <Badge variant="outline" className={cn("ml-2 align-middle text-[10px] uppercase", BADGE_CLASS[kind])}>
                   {kind}

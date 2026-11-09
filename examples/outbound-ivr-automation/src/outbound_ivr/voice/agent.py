@@ -1615,16 +1615,16 @@ def write_case_record(state: CallState) -> None:
 
     `OUTBOUND_IVR_ARTIFACTS_BUCKET` set (always true in the deployed Runtime):
     s3://OUTBOUND_IVR_ARTIFACTS_BUCKET/cases/<case_id>/<call_uuid>.json -- a key per case_id,
-    not per auth_ref, because the dashboard API (lambdas/api/handler.py) lists
+    not per pa_reference, because the dashboard API (lambdas/api/handler.py) lists
     `cases/{case_id}/` to find a case's calls. Otherwise falls back to
-    runs/cases/<auth_ref>-<call_uuid>.json on local disk.
+    runs/cases/<pa_reference>-<call_uuid>.json on local disk.
     """
     state.record["ended_at"] = datetime.now(UTC).isoformat()
     body = json.dumps(state.record, indent=2).encode("utf-8")
-    file_name = f"{state.record['auth_ref']}-{state.call_uuid}.json"
+    file_name = f"{state.record['pa_reference']}-{state.call_uuid}.json"
     bucket = os.environ.get("OUTBOUND_IVR_ARTIFACTS_BUCKET")
     if bucket:
-        case_id = state.case_id or state.record["auth_ref"]
+        case_id = state.case_id or state.record["pa_reference"]
         store = S3ArtifactStore()
         location = store.put(
             f"cases/{case_id}/{state.call_uuid}.json", body, content_type="application/json"

@@ -37,7 +37,7 @@ def _decimals_to_native(obj: Any) -> Any:
 def default_case(case_id: str, **fields: Any) -> dict:
     """A case item with every field the store expects, defaults filled in.
 
-    Shape: case_id (key), payer, patient fields, member_id, auth_ref, procedure,
+    Shape: case_id (key), payer, patient fields, member_id, pa_reference, procedure,
     ordering_provider, office_id, missing_items (key, label, question), status,
     attempts, results (per key: value, confirmed, at, call), outcome, updated_at.
     """
@@ -47,7 +47,7 @@ def default_case(case_id: str, **fields: Any) -> dict:
         "patient_name": "",
         "patient_dob": "",
         "member_id": "",
-        "auth_ref": "",
+        "pa_reference": "",
         "procedure": "",
         "ordering_provider": "",
         "office_id": "",

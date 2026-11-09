@@ -14,7 +14,7 @@ ITEM_KEYS = [i["key"] for i in prompts.CASE["missing_items"]]
 def new_record() -> dict:
     """Empty case record, the shape DynamoDB will hold later."""
     return {
-        "auth_ref": prompts.CASE["auth_ref"],
+        "pa_reference": prompts.CASE["pa_reference"],
         "patient": prompts.CASE["patient_name"],
         "started_at": datetime.now(UTC).isoformat(),
         "items": {},
@@ -34,7 +34,7 @@ def use_case(record: dict, case: dict) -> None:
     """Point the record at the case actually being called: its checklist keys, auth
     reference and patient, instead of the fixed demo case."""
     record["item_keys"] = [i["key"] for i in case.get("missing_items", [])]
-    record["auth_ref"] = case.get("auth_ref") or record["auth_ref"]
+    record["pa_reference"] = case.get("pa_reference") or record["pa_reference"]
     record["patient"] = case.get("patient_name") or record["patient"]
 
 

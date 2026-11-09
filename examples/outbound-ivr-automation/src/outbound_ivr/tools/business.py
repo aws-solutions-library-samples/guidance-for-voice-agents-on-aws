@@ -147,7 +147,7 @@ def load_case(store: CaseStore, case_id: str) -> dict | None:
         "patient_name": case.get("patient_name", ""),
         "patient_dob": case.get("patient_dob", ""),
         "member_id": case.get("member_id", ""),
-        "auth_ref": case.get("auth_ref", ""),
+        "pa_reference": case.get("pa_reference", ""),
         "procedure": case.get("procedure", ""),
         "submitted_on": case.get("submitted_on", ""),
         "return_fax": case.get("return_fax", ""),

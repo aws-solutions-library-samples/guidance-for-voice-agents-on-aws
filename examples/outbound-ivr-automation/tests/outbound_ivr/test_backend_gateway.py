@@ -410,7 +410,7 @@ def test_case_for_prompt_reads_the_real_case_from_dynamodb(monkeypatch):
                 payer="Real Health Plan",
                 provider_office="Real Medical Group",
                 patient_name="Pat Real",
-                auth_ref="AUTH-REAL",
+                pa_reference="AUTH-REAL",
                 missing_items=[
                     {"key": "progress_note", "label": "Progress note", "question": "the note"}
                 ],
