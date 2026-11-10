@@ -103,11 +103,12 @@ async def _run_call(call_id: str, case_id: str) -> None:
         identity=AGENT_IDENTITY,
     )
     call_task: asyncio.Task | None = None
+    handed_off = asyncio.Event()
     try:
         await livekit_calls.create_room(
             lkapi, call_id, mode=CALL_MODE, case_id=case_id, record=True
         )
-        call_task = asyncio.create_task(agent.handle_call(transport))
+        call_task = asyncio.create_task(agent.handle_call(transport, handed_off=handed_off))
         await livekit_calls.wait_for_agent_join(
             lkapi, call_id, _TaskAsProcess(call_task), AGENT_IDENTITY, livekit_calls.JOIN_WAIT_S
         )
@@ -116,7 +117,7 @@ async def _run_call(call_id: str, case_id: str) -> None:
         await livekit_calls.dial_office(
             lkapi, call_id, sip_identity, extension=office_number, trunk_name=trunk_name
         )
-        await asyncio.wait_for(call_task, timeout=livekit_calls.CALL_TIMEOUT_S)
+        await _wait_for_call(call_id, call_task, handed_off)
     except Exception:
         logger.exception("livekit_call_ended_abnormally", call_id=call_id)
         if call_task is not None and not call_task.done():
@@ -129,6 +130,29 @@ async def _run_call(call_id: str, case_id: str) -> None:
             await livekit_calls.delete_room(lkapi, call_id)
         with contextlib.suppress(Exception):
             await lkapi.aclose()
+
+
+async def _wait_for_call(call_id: str, call_task: asyncio.Task, handed_off: asyncio.Event) -> None:
+    """Wait for the call to finish, bounded by `CALL_TIMEOUT_S` until a colleague joins
+    and by `HANDOFF_MAX_S` from the handoff on: after a handoff Outbound IVR stays in the
+    room while the office and the colleague talk, and the shorter ceiling would cut
+    them off. Raises `TimeoutError` (cancelling the call) when the ceiling passes."""
+    async with asyncio.timeout(livekit_calls.CALL_TIMEOUT_S) as ceiling:
+
+        async def extend_on_handoff() -> None:
+            await handed_off.wait()
+            ceiling.reschedule(asyncio.get_running_loop().time() + livekit_calls.HANDOFF_MAX_S)
+            logger.info(
+                "call_ceiling_extended_for_handoff",
+                call_id=call_id,
+                handoff_max_s=livekit_calls.HANDOFF_MAX_S,
+            )
+
+        watcher = asyncio.create_task(extend_on_handoff())
+        try:
+            await call_task
+        finally:
+            watcher.cancel()
 
 
 # The call's final "handoff" event outcome -> the case status the dashboard shows.

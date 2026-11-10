@@ -435,7 +435,11 @@ class EscalationNestedStack(NestedStack):
             ),
             environment={"HANDOFF_TABLE": self.handoff_table.table_name},
         )
+        # Read plus UpdateItem, not full read/write: the lookup claims a code with
+        # one conditional UpdateItem (single-use, see the handler) and never puts or
+        # deletes items.
         self.handoff_table.grant_read_data(self.lookup_lambda)
+        self.handoff_table.grant(self.lookup_lambda, "dynamodb:UpdateItem")
         self.lookup_lambda.add_permission(
             "AllowConnectInvoke",
             principal=iam.ServicePrincipal("connect.amazonaws.com"),

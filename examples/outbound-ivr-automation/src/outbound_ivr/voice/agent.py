@@ -532,6 +532,9 @@ class CallState:
     # must not hang up the SIP leg on this path, and the "ended" event's reason is
     # "handed off" rather than "far end hung up" / "agent hung up".
     handed_off: bool = False
+    # Set alongside `handed_off`, for whoever runs the call (`agentcore/livekit_app.py`)
+    # to switch to the longer post-handoff ceiling: see `handle_call`'s `handed_off`.
+    handoff_joined: asyncio.Event = field(default_factory=asyncio.Event)
     # `time.monotonic()` when the last audio frame arrived from the far end, set by
     # `read_audio` on every frame. After a handoff this is the only honest signal that
     # the call is still alive: see `_wait_for_handoff_to_end`.
@@ -1097,6 +1100,7 @@ def make_transfer_to_team_tool(state: CallState) -> Any:
             identity=result.identity,
         )
         state.handed_off = True
+        state.handoff_joined.set()
         state.begin_closing(next_phase="handed_off")
         # `result.briefing` overrides the model's own `summary` when the dialer composed
         # its own name-free sentence instead (docs/escalation-handoff.md's AWS "direct"
@@ -1692,9 +1696,13 @@ def upload_recording(transport: Transport) -> None:
     logger.info("uploaded_recording", call_id=transport.call_uuid, location=location)
 
 
-async def handle_call(transport: Transport) -> None:
+async def handle_call(transport: Transport, handed_off: asyncio.Event | None = None) -> None:
     """Run one call end to end over `transport`: `agentcore/livekit_app.py` builds a
-    `LiveKitTransport` and calls this directly."""
+    `LiveKitTransport` and calls this directly.
+
+    `handed_off`, if given, is set once a colleague has joined the call
+    (`transfer_to_team`), so the caller can tell a handed-off call from one still
+    working the office."""
     try:
         call_uuid = await transport.handshake()
     except (frames.FrameError, TransportError) as exc:
@@ -1719,6 +1727,8 @@ async def handle_call(transport: Transport) -> None:
     state = CallState(
         call_uuid=call_uuid, mode=mode, log=log, transport=transport, case_id=transport.case_id
     )
+    if handed_off is not None:
+        state.handoff_joined = handed_off
     state.backend = make_backend(state.record, state.case_id)
     # transfer_to_team's own backend (docs/escalation-handoff.md): waits for a
     # "team-" participant via this call's own transport -- or, OUTBOUND_IVR_TEAM_DIALER=aws
