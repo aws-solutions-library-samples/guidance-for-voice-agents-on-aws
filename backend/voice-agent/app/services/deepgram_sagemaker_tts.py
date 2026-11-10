@@ -66,7 +66,9 @@ from pipecat.services.tts_service import TTSService
 
 try:
     from pipecat.services.aws.sagemaker.bidi_client import SageMakerBidiClient
-except ModuleNotFoundError as e:
+except ImportError as e:
+    # pipecat >= 1.3 re-raises a missing optional dependency as ImportError
+    # (not ModuleNotFoundError), so catch the base class.
     logger.error("sagemaker_module_missing", error=str(e))
     logger.error(
         "sagemaker_install_required",
@@ -172,7 +174,9 @@ class DeepgramSageMakerTTSService(TTSService):
         """
         logger.info("tts_voice_switching", voice=voice)
         self._voice = voice
-        await self.set_model(voice)  # set_model_name removed in pipecat 0.0.108
+        # TTSService.set_model() is deprecated (removal in pipecat 2.0); it only
+        # wrapped this settings update.
+        await self._update_settings(type(self._settings)(model=voice))
 
     async def start(self, frame: StartFrame):
         """Start the Deepgram SageMaker TTS service."""
