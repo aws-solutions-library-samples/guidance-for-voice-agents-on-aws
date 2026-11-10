@@ -33,7 +33,6 @@ import logging
 import os
 import sys
 import uuid
-import warnings
 
 import structlog
 import uvicorn
@@ -68,17 +67,6 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 from loguru import logger as _loguru_logger
 
 _loguru_logger.disable("pipecat")
-
-# Suppress pipecat-internal deprecation warnings
-warnings.filterwarnings(
-    "ignore",
-    message=r"OpenAILLMContext is deprecated",
-    category=DeprecationWarning,
-    module=r"pipecat\.processors\.aggregators\.openai_llm_context",
-)
-import pipecat.services as _pipecat_services
-
-_pipecat_services._warned_modules.add(("deepgram", "deepgram.[stt,tts]"))
 
 # Configure structured logging
 structlog.configure(

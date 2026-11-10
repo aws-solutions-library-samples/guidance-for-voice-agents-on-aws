@@ -303,20 +303,19 @@ class TestSTTGracefulTeardown:
 
     def _make_stt(self):
         """Create an STT service instance with mocked internals."""
-        with patch("pipecat.services.deepgram.stt_sagemaker.SageMakerBidiClient"):
+        with patch("pipecat.services.deepgram.sagemaker.stt.SageMakerBidiClient"):
             from app.services.deepgram_sagemaker_stt import (
                 DeepgramSageMakerSTTService,
             )
-            from deepgram import LiveOptions
 
             stt = DeepgramSageMakerSTTService(
                 endpoint_name="test-endpoint",
                 region="us-east-1",
-                live_options=LiveOptions(
+                encoding="linear16",
+                sample_rate=8000,
+                settings=DeepgramSageMakerSTTService.Settings(
                     model="nova-3",
                     language="en",
-                    encoding="linear16",
-                    sample_rate=8000,
                 ),
             )
         return stt
@@ -394,7 +393,7 @@ class TestSTTGracefulTeardown:
     async def test_overrides_parent_disconnect(self):
         """Our STT wrapper must override the parent _disconnect method."""
         from app.services.deepgram_sagemaker_stt import DeepgramSageMakerSTTService
-        from pipecat.services.deepgram.stt_sagemaker import (
+        from pipecat.services.deepgram.sagemaker.stt import (
             DeepgramSageMakerSTTService as ParentSTT,
         )
 
