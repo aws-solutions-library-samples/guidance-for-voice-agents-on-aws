@@ -128,10 +128,10 @@ def create_llm_service(model_id: str, region: str):
         )
 
         return OpenAILLMService(
-            model=model_id,
             api_key=api_key,
             base_url=base_url,
-            params=OpenAILLMService.InputParams(
+            settings=OpenAILLMService.Settings(
+                model=model_id,
                 max_tokens=256,
                 temperature=0.7,
             ),
@@ -148,9 +148,9 @@ def create_llm_service(model_id: str, region: str):
         )
 
         return AWSBedrockLLMService(
-            model=model_id,
             region=region,
-            params=AWSBedrockLLMService.InputParams(
+            settings=AWSBedrockLLMService.Settings(
+                model=model_id,
                 max_tokens=256,
                 temperature=0.7,
             ),

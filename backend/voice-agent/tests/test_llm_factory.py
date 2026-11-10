@@ -66,7 +66,7 @@ class TestCreateLlmService:
 
     @patch("pipecat.services.aws.llm.AWSBedrockLLMService")
     def test_claude_creates_bedrock_service(self, mock_bedrock_class):
-        mock_bedrock_class.InputParams = MagicMock()
+        mock_bedrock_class.Settings = MagicMock()
         mock_bedrock_class.return_value = MagicMock()
 
         result = create_llm_service(
@@ -76,12 +76,13 @@ class TestCreateLlmService:
 
         mock_bedrock_class.assert_called_once()
         call_kwargs = mock_bedrock_class.call_args[1]
-        assert call_kwargs["model"] == "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        assert mock_bedrock_class.Settings.call_args[1]["model"] == "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        assert call_kwargs["settings"] is mock_bedrock_class.Settings.return_value
         assert call_kwargs["region"] == "us-east-1"
 
     @patch("pipecat.services.aws.llm.AWSBedrockLLMService")
     def test_nemotron_creates_bedrock_service(self, mock_bedrock_class):
-        mock_bedrock_class.InputParams = MagicMock()
+        mock_bedrock_class.Settings = MagicMock()
         mock_bedrock_class.return_value = MagicMock()
 
         result = create_llm_service(
@@ -91,12 +92,13 @@ class TestCreateLlmService:
 
         mock_bedrock_class.assert_called_once()
         call_kwargs = mock_bedrock_class.call_args[1]
-        assert call_kwargs["model"] == "nvidia.nemotron-super-3-120b"
+        assert mock_bedrock_class.Settings.call_args[1]["model"] == "nvidia.nemotron-super-3-120b"
+        assert call_kwargs["settings"] is mock_bedrock_class.Settings.return_value
 
     @patch.dict(os.environ, {"BEDROCK_API_KEY": "test-bedrock-key"})
     @patch("pipecat.services.openai.llm.OpenAILLMService")
     def test_gpt_luna_creates_openai_service(self, mock_openai_class):
-        mock_openai_class.InputParams = MagicMock()
+        mock_openai_class.Settings = MagicMock()
         mock_openai_class.return_value = MagicMock()
 
         result = create_llm_service(
@@ -106,7 +108,8 @@ class TestCreateLlmService:
 
         mock_openai_class.assert_called_once()
         call_kwargs = mock_openai_class.call_args[1]
-        assert call_kwargs["model"] == "openai.gpt-5.6-luna"
+        assert mock_openai_class.Settings.call_args[1]["model"] == "openai.gpt-5.6-luna"
+        assert call_kwargs["settings"] is mock_openai_class.Settings.return_value
         assert call_kwargs["api_key"] == "test-bedrock-key"
         assert call_kwargs["base_url"] == "https://bedrock-mantle.us-east-1.api.aws/openai/v1"
 
@@ -123,7 +126,7 @@ class TestCreateLlmService:
     @patch.dict(os.environ, {"BEDROCK_API_KEY": "test-key"})
     @patch("pipecat.services.openai.llm.OpenAILLMService")
     def test_gpt_oss_uses_standard_mantle_path(self, mock_openai_class):
-        mock_openai_class.InputParams = MagicMock()
+        mock_openai_class.Settings = MagicMock()
         mock_openai_class.return_value = MagicMock()
 
         create_llm_service(
@@ -137,7 +140,7 @@ class TestCreateLlmService:
     @patch("pipecat.services.aws.llm.AWSBedrockLLMService")
     def test_unknown_model_defaults_to_bedrock(self, mock_bedrock_class):
         """Unknown models not in MANTLE_MODELS default to Converse/bedrock-runtime."""
-        mock_bedrock_class.InputParams = MagicMock()
+        mock_bedrock_class.Settings = MagicMock()
         mock_bedrock_class.return_value = MagicMock()
 
         result = create_llm_service(
@@ -147,5 +150,6 @@ class TestCreateLlmService:
 
         mock_bedrock_class.assert_called_once()
         call_kwargs = mock_bedrock_class.call_args[1]
-        assert call_kwargs["model"] == "some.unknown-model-v1"
+        assert mock_bedrock_class.Settings.call_args[1]["model"] == "some.unknown-model-v1"
+        assert call_kwargs["settings"] is mock_bedrock_class.Settings.return_value
         assert call_kwargs["region"] == "us-east-1"

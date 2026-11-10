@@ -66,9 +66,7 @@ def create_stt_service(config: "PipelineConfig"):
 
     elif provider == "sagemaker":
         from app.services.deepgram_sagemaker_stt import DeepgramSageMakerSTTService
-
-        # deepgram-sdk 6.x removed LiveOptions; Pipecat ships a compat wrapper.
-        from pipecat.services.deepgram.stt import LiveOptions
+        from pipecat.transcriptions.language import Language
 
         from app.services.sagemaker_credentials import patch_sagemaker_bidi_credentials
 
@@ -85,21 +83,23 @@ def create_stt_service(config: "PipelineConfig"):
             endpoint=config.stt_endpoint,
             region=config.aws_region,
         )
+        # Connection-level options are init params; runtime-updatable options
+        # go in Settings (pipecat 1.x deprecated the legacy live_options).
         return DeepgramSageMakerSTTService(
             endpoint_name=config.stt_endpoint,
             region=config.aws_region,
-            live_options=LiveOptions(
+            encoding="linear16",
+            channels=1,
+            # Must match the transport's sample rate. Local WebRTC runs at
+            # 16000 (LOCAL_SAMPLE_RATE in pipeline_local.py); 8000 is the
+            # PSTN/telephony rate. A mismatch makes the BiDi handshake hang
+            # silently — Pipecat's built-in STT service has no timeout.
+            sample_rate=int(os.environ.get("STT_SAMPLE_RATE", "16000")),
+            settings=DeepgramSageMakerSTTService.Settings(
                 model="nova-3",
-                language="en",
+                language=Language.EN,
                 interim_results=True,
                 punctuate=True,
-                encoding="linear16",
-                # Must match the transport's sample rate. Local WebRTC runs at
-                # 16000 (LOCAL_SAMPLE_RATE in pipeline_local.py); 8000 is the
-                # PSTN/telephony rate. A mismatch makes the BiDi handshake hang
-                # silently — Pipecat's built-in STT service has no timeout.
-                sample_rate=int(os.environ.get("STT_SAMPLE_RATE", "16000")),
-                channels=1,
             ),
         )
 
@@ -181,8 +181,8 @@ def create_tts_service(config: "PipelineConfig"):
         logger.info("tts_provider_selected", provider="cartesia", voice_id=voice_id)
         return CartesiaTTSService(
             api_key=api_key,
-            voice_id=voice_id,
             sample_rate=8000,
+            settings=CartesiaTTSService.Settings(voice=voice_id),
         )
 
 
