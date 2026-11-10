@@ -143,12 +143,25 @@ Under the [shared responsibility model](https://aws.amazon.com/compliance/shared
 that compliance is the customer's responsibility. See
 [HIPAA compliance on AWS](https://aws.amazon.com/compliance/hipaa-compliance/).
 
-The example places real outbound phone calls, which are recorded and can be listened to
-live. The agent tells the callee it is automated and on a recorded line, but
-call-recording consent laws vary (some jurisdictions require every party's consent),
-and automated outbound calling is regulated (for example, the US Telephone Consumer
-Protection Act, TCPA). Only call numbers you own or have explicit permission to call,
-and get legal advice before adapting it for real calls.
+The example places real outbound phone calls that are recorded, transcribed, and can
+be listened to live. Laws on calls like these differ by country and region and can
+apply even to test traffic. Depending on where you and the people you call are, they
+may cover:
+
+- **Recording and monitoring consent**: whether one party, or every party, must
+  consent to a call being recorded or listened to, and how they must be told.
+- **Automated and AI-voiced calls**: whether prior consent is needed to place them, and
+  whether the caller must disclose up front that it is automated.
+- **Outbound calling rules**: do-not-call registers, permitted calling hours, and
+  caller-ID display requirements.
+- **Privacy and data protection**: recordings and transcripts are personal data, which
+  can bring notice, retention, access, and cross-border transfer obligations.
+- **Sector rules**: health, financial, or other regulated information carries its own
+  requirements (see the PHI note above).
+
+The agent tells the callee it is automated and on a recorded line, which may not meet
+every requirement. Only call numbers you own or have explicit permission to call, and
+seek your own legal advice before using or adapting this example for real calls.
 
 ## Prerequisites
 
