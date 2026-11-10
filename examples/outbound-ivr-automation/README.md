@@ -118,6 +118,19 @@ The same architecture with AWS service icons, and the seven steps of a call ([dr
   subnets in the same VPC, the hop never leaves the VPC, and call audio itself is
   WebRTC (DTLS-SRTP, always encrypted) regardless. A production deployment should put
   TLS in front of LiveKit's signaling port.
+- The dashboard's Content-Security-Policy ships in report-only mode by default. Once
+  you have clicked through the dashboard, including listen-in and the softphone, with
+  no CSP violations in the browser console, enforce it. `deploy.sh` does not pass extra
+  `-c` flags through, so add `"enforceCsp": true` to the `context` block of
+  `infrastructure/cdk.json` and run `infrastructure/scripts/deploy.sh outbound_ivr`.
+  The dashboard's refresh token is long-lived and kept in browser storage, so an
+  enforced CSP is the main XSS mitigation.
+- Any signed-in operator can view every case and call, listen in live, and read
+  transcripts and recordings. There is no per-case or per-operator access control.
+- Callee and IVR audio is untrusted input to the model. The Gateway's policy engine
+  limits what tool calls can do (tool and argument allowlists), but there is no
+  separate prompt-injection defense, and the agent does not verify the office's
+  identity.
 
 ### Compliance
 
@@ -129,6 +142,13 @@ Business Associate Addendum (BAA) with AWS, plus your own HIPAA controls and rev
 Under the [shared responsibility model](https://aws.amazon.com/compliance/shared-responsibility-model/),
 that compliance is the customer's responsibility. See
 [HIPAA compliance on AWS](https://aws.amazon.com/compliance/hipaa-compliance/).
+
+The example places real outbound phone calls, which are recorded and can be listened to
+live. The agent tells the callee it is automated and on a recorded line, but
+call-recording consent laws vary (some jurisdictions require every party's consent),
+and automated outbound calling is regulated (for example, the US Telephone Consumer
+Protection Act, TCPA). Only call numbers you own or have explicit permission to call,
+and get legal advice before adapting it for real calls.
 
 ## Prerequisites
 
@@ -310,6 +330,11 @@ The two biggest drivers are the seven **VPC interface endpoints** (about half th
 total, and the same cost whether the example handles one call or a thousand) and the
 **EC2 LiveKit host**, together over 60% of the bill: both are always-on infrastructure
 that gets paid for even while idle. **Elastic IPs** are the next largest fixed cost.
+
+A full teardown can take two `cleanup.sh --yes` runs hours apart, because AgentCore can
+hold its VPC network interfaces for up to 8 hours after the Runtime is deleted. The
+remaining resources keep billing until the second run, and the Chime SDK caller-ID
+number must be released by hand (see [Cleanup](#cleanup)).
 
 To cut cost: tear down `OutboundIvrStack` (`infrastructure/scripts/cleanup.sh`, without
 the two long-lived stacks) whenever you are not actively testing. That removes the EC2
