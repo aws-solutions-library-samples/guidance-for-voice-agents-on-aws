@@ -1,3 +1,5 @@
+Examples live in `examples/`; follow [examples/AGENTS.md](examples/AGENTS.md).
+
 ## Documentation Conventions
 
 - Use Mermaid diagrams instead of ASCII art for all architecture diagrams, flow charts, and sequence diagrams in Markdown files.
