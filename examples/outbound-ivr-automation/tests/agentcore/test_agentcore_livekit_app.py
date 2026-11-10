@@ -205,7 +205,7 @@ def _wire_run_call(monkeypatch, *, handle_call=None):
     monkeypatch.setattr(livekit_app.livekit_calls, "dial_office", fake_dial_office)
     monkeypatch.setattr(livekit_app.livekit_calls, "delete_room", fake_delete_room)
 
-    async def default_handle_call(transport):
+    async def default_handle_call(transport, handed_off=None):
         calls.append(("handle_call", (transport.call_uuid or transport._room_name,), {}))
 
     monkeypatch.setattr(livekit_app.agent, "handle_call", handle_call or default_handle_call)
@@ -257,7 +257,7 @@ async def test_run_call_defaults_the_trunk_name_when_unset(monkeypatch):
 async def test_run_call_builds_the_transport_with_the_resolved_api_secret(monkeypatch):
     seen_transport = {}
 
-    async def capture_handle_call(transport):
+    async def capture_handle_call(transport, handed_off=None):
         seen_transport["api_secret"] = transport._api_secret
         seen_transport["room_name"] = transport._room_name
         seen_transport["identity"] = transport._identity
@@ -294,7 +294,7 @@ async def test_run_call_cancels_the_agent_task_if_dialing_fails(monkeypatch):
     joined = asyncio.Event()
     cancelled = asyncio.Event()
 
-    async def slow_handle_call(transport):
+    async def slow_handle_call(transport, handed_off=None):
         joined.set()
         try:
             await asyncio.sleep(10)
@@ -314,6 +314,70 @@ async def test_run_call_cancels_the_agent_task_if_dialing_fails(monkeypatch):
 
     assert joined.is_set()
     assert cancelled.is_set()
+
+
+async def test_run_call_cancels_a_call_that_outlives_the_call_ceiling(monkeypatch):
+    cancelled = asyncio.Event()
+
+    async def endless_handle_call(transport, handed_off=None):
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    calls, _ = _wire_run_call(monkeypatch, handle_call=endless_handle_call)
+    monkeypatch.setenv("OUTBOUND_IVR_OFFICE_NUMBER", "+15555550101")
+    monkeypatch.setattr(livekit_app.livekit_calls, "CALL_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(livekit_app.livekit_calls, "HANDOFF_MAX_S", 5.0)
+
+    await asyncio.wait_for(livekit_app._run_call(CALL_ID, CASE_ID), timeout=2)
+
+    assert cancelled.is_set()
+    assert ("delete_room", (CALL_ID,), {}) in calls
+
+
+async def test_run_call_lets_a_handed_off_call_outlive_the_call_ceiling(monkeypatch):
+    """After a colleague joins, the office and the colleague are still talking: the
+    pre-handoff ceiling must not cut them off."""
+    finished = asyncio.Event()
+
+    async def handed_off_handle_call(transport, handed_off=None):
+        handed_off.set()
+        await asyncio.sleep(0.2)  # well past CALL_TIMEOUT_S below
+        finished.set()
+
+    calls, _ = _wire_run_call(monkeypatch, handle_call=handed_off_handle_call)
+    monkeypatch.setenv("OUTBOUND_IVR_OFFICE_NUMBER", "+15555550101")
+    monkeypatch.setattr(livekit_app.livekit_calls, "CALL_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(livekit_app.livekit_calls, "HANDOFF_MAX_S", 5.0)
+
+    await asyncio.wait_for(livekit_app._run_call(CALL_ID, CASE_ID), timeout=2)
+
+    assert finished.is_set()
+    assert ("delete_room", (CALL_ID,), {}) in calls
+
+
+async def test_run_call_still_bounds_a_handed_off_call(monkeypatch):
+    cancelled = asyncio.Event()
+
+    async def endless_handed_off_handle_call(transport, handed_off=None):
+        handed_off.set()
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    calls, _ = _wire_run_call(monkeypatch, handle_call=endless_handed_off_handle_call)
+    monkeypatch.setenv("OUTBOUND_IVR_OFFICE_NUMBER", "+15555550101")
+    monkeypatch.setattr(livekit_app.livekit_calls, "CALL_TIMEOUT_S", 5.0)
+    monkeypatch.setattr(livekit_app.livekit_calls, "HANDOFF_MAX_S", 0.05)
+
+    await asyncio.wait_for(livekit_app._run_call(CALL_ID, CASE_ID), timeout=2)
+
+    assert cancelled.is_set()
+    assert ("delete_room", (CALL_ID,), {}) in calls
 
 
 async def test_run_call_requires_the_office_number_env_var(monkeypatch):

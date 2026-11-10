@@ -90,6 +90,7 @@ def test_transfer_to_team_requires_a_reason(monkeypatch):
     assert result == "A reason is required to bring in a colleague."
     assert state.team_dialer.calls == []
     assert state.handed_off is False
+    assert not state.handoff_joined.is_set()
 
 
 def test_transfer_to_team_requires_a_summary(monkeypatch):
@@ -138,6 +139,7 @@ def test_transfer_to_team_warm_intro_once_a_colleague_joins(monkeypatch):
         }
     ]
     assert state.handed_off is True
+    assert state.handoff_joined.is_set()
     assert state.closing_since is not None
     assert state.closing_next_phase == "handed_off"
     assert state.record["outcome"]["type"] == "handed_off"
@@ -206,6 +208,7 @@ def test_transfer_to_team_no_answer_falls_back_to_escalate(monkeypatch):
     assert "no one was available" in result.lower()
     assert "escalate" in result.lower()
     assert state.handed_off is False
+    assert not state.handoff_joined.is_set()
     assert state.closing_since is None
     assert "outcome" not in state.record or state.record["outcome"] is None
     event_types = [t for t, _ in state.log.events]
@@ -352,6 +355,28 @@ async def test_handle_call_ends_handed_off_without_hanging_up(monkeypatch, tmp_p
     # The call is over (the team and the far end have both left): a Evidence team card
     # that's still showing "connected" for this room must be told to drop to idle.
     assert dialer.cleared == ["call-1"]
+
+
+async def test_handle_call_signals_the_callers_handed_off_event(monkeypatch, tmp_path):
+    """`handle_call(handed_off=...)` is the event `transfer_to_team` sets: it is how
+    `agentcore/livekit_app.py` knows to switch to the post-handoff call ceiling."""
+    monkeypatch.setattr(agent, "RUNS", tmp_path)
+    monkeypatch.setattr(agent, "LEVELS_ENABLED", False)
+    seen: list[asyncio.Event] = []
+
+    async def _fake_run_intake_phase(conn, state) -> None:
+        seen.append(state.handoff_joined)
+        state.handed_off = True
+        state.handoff_joined.set()
+        state.next_phase = "handed_off"
+
+    monkeypatch.setattr(agent, "run_intake_phase", _fake_run_intake_phase)
+
+    handed_off = asyncio.Event()
+    await asyncio.wait_for(agent.handle_call(_HandoffTransport(), handed_off=handed_off), timeout=5)
+
+    assert seen == [handed_off]
+    assert handed_off.is_set()
 
 
 async def test_handle_call_clears_the_evidence_card_on_a_plain_hangup(monkeypatch, tmp_path):

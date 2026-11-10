@@ -270,6 +270,13 @@ pattern as `escalate`/`complete` returning "Thank them... stop talking"), specif
    change needed there, since `_run_call`'s `finally` already deletes the room and stops
    the agent process once it exits, whatever reason it exited for.
 
+   The Runtime's overall call ceiling (`agentcore/livekit_app.py`, `_wait_for_call`) is
+   `livekit_calls.CALL_TIMEOUT_S` (420 seconds) until a colleague joins. Once
+   `transfer_to_team` sets the call's `handed_off` event it switches to
+   `livekit_calls.HANDOFF_MAX_S` from that moment (`OUTBOUND_IVR_HANDOFF_MAX_S`, default
+   1800 seconds), so the shorter pre-handoff ceiling does not cut off the office and the
+   colleague mid-conversation. The silence backstop above still ends a dead call first.
+
 ## 5. No answer in 30 seconds
 
 If no `"team-"` participant joins within the wait in part 3, `TeamDialer.request_handoff`

@@ -37,7 +37,11 @@ OFFICE_EXTENSION = os.environ.get("OUTBOUND_IVR_LIVEKIT_OFFICE_EXTENSION", "200"
 AGENT_IDENTITY = "outbound_ivr"
 
 JOIN_WAIT_S = 20.0  # how long to wait for the agent to join the room before dialing out
-CALL_TIMEOUT_S = 420.0  # safety ceiling on the whole call
+CALL_TIMEOUT_S = 420.0  # safety ceiling on the call until a colleague joins
+# Once a colleague has joined (`transfer_to_team`), Outbound IVR deliberately stays in the
+# room while the office and the colleague talk, so CALL_TIMEOUT_S would cut their
+# conversation off. From the handoff on, this ceiling applies instead, still bounded.
+HANDOFF_MAX_S = float(os.environ.get("OUTBOUND_IVR_HANDOFF_MAX_S", "1800"))
 
 # How long livekit-sip waits for RTP on a leg before tearing the call down as dead, set
 # per call via `CreateSIPParticipantRequest.media.media_timeout`.
