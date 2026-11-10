@@ -1,0 +1,173 @@
+{
+  "source": "scripts/pipeline_parity.py capture with pipecat-ai 0.0.108 (scripted-VAD and Polly speech modes)",
+  "kinds": {
+    "call": {
+      "namespaces": [
+        "VoiceAgent/Pipeline"
+      ],
+      "dimension_sets": [
+        [
+          [
+            "CompletionStatus",
+            "Environment"
+          ],
+          [
+            "Environment"
+          ]
+        ]
+      ],
+      "metrics": [
+        [
+          "AvgAgentResponseLatency",
+          "Milliseconds"
+        ],
+        [
+          "AvgAudioPeak",
+          "None"
+        ],
+        [
+          "AvgAudioRMS",
+          "None"
+        ],
+        [
+          "AvgLLMLatency",
+          "Milliseconds"
+        ],
+        [
+          "AvgSTTLatency",
+          "Milliseconds"
+        ],
+        [
+          "AvgTTSLatency",
+          "Milliseconds"
+        ],
+        [
+          "CallDuration",
+          "Seconds"
+        ],
+        [
+          "InterruptionCount",
+          "Count"
+        ],
+        [
+          "PoorAudioTurns",
+          "Count"
+        ],
+        [
+          "TurnCount",
+          "Count"
+        ]
+      ]
+    },
+    "session": {
+      "namespaces": [
+        "VoiceAgent/Pipeline"
+      ],
+      "dimension_sets": [
+        [
+          [
+            "Environment"
+          ]
+        ]
+      ],
+      "metrics": [
+        [
+          "ActiveSessions",
+          "Count"
+        ]
+      ]
+    },
+    "tool": {
+      "namespaces": [
+        "VoiceAgent/Pipeline"
+      ],
+      "dimension_sets": [
+        [
+          [
+            "Environment"
+          ],
+          [
+            "Environment",
+            "ToolCategory"
+          ],
+          [
+            "Environment",
+            "ToolName"
+          ],
+          [
+            "Environment",
+            "ToolStatus"
+          ]
+        ]
+      ],
+      "metrics": [
+        [
+          "ToolExecutionTime",
+          "Milliseconds"
+        ],
+        [
+          "ToolInvocationCount",
+          "Count"
+        ]
+      ]
+    },
+    "turn": {
+      "namespaces": [
+        "VoiceAgent/Pipeline"
+      ],
+      "dimension_sets": [
+        [
+          [
+            "CallId",
+            "Environment"
+          ],
+          [
+            "Environment"
+          ]
+        ]
+      ],
+      "metrics": [
+        [
+          "AgentResponseLatency",
+          "Milliseconds"
+        ],
+        [
+          "AudioPeak",
+          "None"
+        ],
+        [
+          "AudioRMS",
+          "None"
+        ],
+        [
+          "LLMOutputTokens",
+          "Count"
+        ],
+        [
+          "LLMTokensPerSecond",
+          "Count/Second"
+        ],
+        [
+          "STTConfidenceAvg",
+          "None"
+        ],
+        [
+          "STTConfidenceMin",
+          "None"
+        ],
+        [
+          "STTWordCount",
+          "Count"
+        ],
+        [
+          "SilenceDuration",
+          "Milliseconds"
+        ],
+        [
+          "TurnGap",
+          "Milliseconds"
+        ]
+      ]
+    }
+  }
+}
