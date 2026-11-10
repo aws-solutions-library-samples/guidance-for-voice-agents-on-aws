@@ -39,7 +39,18 @@ class DeepgramSageMakerSTTService(_BaseDeepgramSageMakerSTTService):
         this, we close the BiDi session first (which signals the CRT to stop
         sending), give background tasks a grace period to exit naturally,
         and only force-cancel as a last resort.
+
+        Since pipecat 1.x, ``_connect()`` runs the BiDi handshake in a
+        background ``_connection_task`` and is a no-op while that attribute is
+        set. Like the upstream ``_disconnect()``, cancel and clear it first, so
+        that an in-flight handshake cannot start tasks after teardown and a
+        later ``_connect()`` can reconnect.
         """
+        connection_task = getattr(self, "_connection_task", None)
+        if connection_task:
+            await self.cancel_task(connection_task)
+            self._connection_task = None
+
         if self._client and self._client.is_active:
             logger.debug("stt_sagemaker_disconnecting")
 

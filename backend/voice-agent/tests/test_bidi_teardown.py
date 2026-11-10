@@ -390,6 +390,50 @@ class TestSTTGracefulTeardown:
         mock_client.close_session.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_disconnect_cancels_inflight_connection_task(self):
+        """An in-flight handshake task must be cancelled and cleared.
+
+        pipecat 1.x runs the BiDi handshake in ``_connection_task`` and
+        ``_connect()`` is a no-op while it is set, so a stale task would both
+        outlive teardown and block any reconnect.
+        """
+        stt = self._make_stt()
+
+        handshake_cancelled = asyncio.Event()
+
+        async def hanging_handshake():
+            try:
+                await asyncio.sleep(999)
+            except asyncio.CancelledError:
+                handshake_cancelled.set()
+                raise
+
+        connection_task = asyncio.create_task(hanging_handshake())
+        await asyncio.sleep(0)  # let the handshake start
+        stt._connection_task = connection_task
+
+        mock_client = MagicMock()
+        type(mock_client).is_active = PropertyMock(return_value=False)
+        mock_client.close_session = AsyncMock()
+        stt._client = mock_client
+
+        async def fake_cancel_task(task):
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        stt.cancel_task = fake_cancel_task
+
+        await stt._disconnect()
+
+        assert handshake_cancelled.is_set()
+        assert connection_task.cancelled()
+        assert stt._connection_task is None
+        mock_client.close_session.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_overrides_parent_disconnect(self):
         """Our STT wrapper must override the parent _disconnect method."""
         from app.services.deepgram_sagemaker_stt import DeepgramSageMakerSTTService
