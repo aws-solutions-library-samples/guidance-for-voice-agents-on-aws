@@ -67,6 +67,7 @@ from outbound_ivr.tools import rendering
 from outbound_ivr.tools.store import LocalArtifactStore, S3ArtifactStore
 from outbound_ivr.voice import frames
 from outbound_ivr.voice.backend import (
+    REFUSED,
     AwsTeamDialer,
     CaseNotFoundError,
     IntakeBackend,
@@ -933,9 +934,13 @@ def make_intake_tools(state: CallState) -> list[Any]:
         # with at all -- does not block escalate, since there is nothing to try.
         if state.team_dialer is not None and not state.transfer_to_team_failed:
             return "First bring in a colleague with transfer_to_team."
-        await state.backend.escalate(
+        outcome = await state.backend.escalate(
             case_id=state.case_id, call=state.call_uuid, reason=reason, follow_up=follow_up or None
         )
+        if outcome["type"] == REFUSED:
+            # e.g. the case already has a final outcome: tell the model so, rather
+            # than "Escalated.", and log no second handoff.
+            return outcome["reason"]
         state.log.write("escalate", reason=reason, follow_up=follow_up)
         state.log.write("handoff", outcome="escalated", reason=reason, follow_up=follow_up)
         state.begin_closing()
@@ -951,6 +956,8 @@ def make_intake_tools(state: CallState) -> list[Any]:
         outcome = await state.backend.complete(
             case_id=state.case_id, call=state.call_uuid, summary=summary
         )
+        if outcome["type"] == REFUSED:
+            return outcome["reason"]
         if outcome["type"] == "escalated":
             state.log.write(
                 "handoff",
@@ -1053,9 +1060,12 @@ def make_transfer_to_team_tool(state: CallState) -> Any:
                 'at most one short "one moment" and then wait quietly.'
             )
         state.transfer_to_team_requested = True
-        await state.backend.transfer_to_team(
+        requested = await state.backend.transfer_to_team(
             case_id=state.case_id, call=state.call_uuid, reason=reason, summary=summary
         )
+        if requested.get("type") == REFUSED:
+            # The case already has a final outcome: don't ring the team for it.
+            return requested["reason"]
         state.log.write("handoff_requested", reason=reason, summary=summary)
         state.log.write("handoff_ringing")
         result = await state.team_dialer.request_handoff(

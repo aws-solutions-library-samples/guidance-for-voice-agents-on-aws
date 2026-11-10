@@ -208,6 +208,23 @@ def _seed_case_store(case_id: str) -> CaseStore:
     return store
 
 
+# What an `IntakeBackend` outcome method returns when `outbound_ivr.tools.business`
+# refused the call: `reason` is business's own short string for the model.
+REFUSED = "refused"
+
+
+def _is_refusal(result: str) -> bool:
+    """True for one of `outbound_ivr.tools.business`'s guard strings rather than a
+    success. Its "A reason is required to ..." strings are inline, not constants."""
+    return result in (business.NO_FINAL_OUTCOME, business.UNKNOWN_CASE) or result.startswith(
+        "A reason is required"
+    )
+
+
+def _refused(result: str) -> dict[str, Any]:
+    return {"type": REFUSED, "reason": result}
+
+
 class LocalBackend(IntakeBackend):
     """`outbound_ivr.intake` on the call's in-memory record, plus `outbound_ivr.tools.business` on an
     `InMemoryCaseStore` seeded from `prompts.CASE` -- see the module docstring."""
@@ -225,20 +242,31 @@ class LocalBackend(IntakeBackend):
         intake.record_item(self._record, key, value, confirmed)
         business.record_item(self._store, self._case_id, call, key, value, confirmed)
 
+    # `business.*` runs FIRST and decides: its guards (`NO_FINAL_OUTCOME` once the case
+    # already has a final outcome, `UNKNOWN_CASE`, a missing reason) used to be called
+    # after `intake.*` and their result discarded, so a second escalate after complete
+    # (or the reverse) still overwrote `self._record["outcome"]` -- the record that
+    # becomes the case record JSON in S3 -- while the case store kept the first one.
+    # A refusal leaves `self._record` alone and comes back as `_refused(...)`, which
+    # the agent's tools hand to the model as-is.
+
     async def escalate(self, *, case_id, call, reason, follow_up) -> dict[str, Any]:
-        outcome = intake.escalate(self._record, reason, follow_up or None)
-        business.escalate(self._store, self._case_id, call, reason, follow_up)
-        return outcome
+        result = business.escalate(self._store, self._case_id, call, reason, follow_up)
+        if _is_refusal(result):
+            return _refused(result)
+        return intake.escalate(self._record, reason, follow_up or None)
 
     async def complete(self, *, case_id, call, summary) -> dict[str, Any]:
-        outcome = intake.complete(self._record, summary)
-        business.complete(self._store, self._case_id, call, summary)
-        return outcome
+        result = business.complete(self._store, self._case_id, call, summary)
+        if _is_refusal(result):
+            return _refused(result)
+        return intake.complete(self._record, summary)
 
     async def transfer_to_team(self, *, case_id, call, reason, summary) -> dict[str, Any]:
-        entry = intake.transfer_to_team(self._record, reason, summary)
-        business.transfer_to_team(self._store, self._case_id, call, reason, summary)
-        return entry
+        result = business.transfer_to_team(self._store, self._case_id, call, reason, summary)
+        if _is_refusal(result):
+            return _refused(result)
+        return intake.transfer_to_team(self._record, reason, summary)
 
     async def mark_handoff_joined(
         self, *, case_id, call, reason, summary, identity
