@@ -12,6 +12,15 @@
 # - runner: FastAPI dev server + prebuilt WebRTC browser UI
 pipecat-ai[daily,silero,deepgram,cartesia,aws,sagemaker,webrtc,runner]==0.0.108
 
+# Pipecat's SageMakerBidiClient (through pipecat-ai 1.6.0) is written against
+# the 0.9.x client API. aws_sdk_sagemaker_runtime_http2 0.10.0 removed
+# config.Config (replaced by AsyncSageMakerRuntimeHTTP2Config), and 0.11.0 also
+# removed the SageMakerRuntimeHTTP2Client alias and made the aiohttp transport
+# the default. The [sagemaker] extra leaves it unpinned, so a clean install
+# resolves the latest release and SageMaker STT/TTS fail at import. Hold below
+# 0.10 until pipecat supports the new client API.
+aws_sdk_sagemaker_runtime_http2>=0.9.0,<0.10
+
 # Starlette is not constrained by pipecat-ai or fastapi<1, so a clean install
 # picks up 1.x, which removed FastAPI.add_event_handler() and breaks
 # app/local_main.py at import time.
