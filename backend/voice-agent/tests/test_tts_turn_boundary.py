@@ -594,3 +594,21 @@ class TestFullPipelineTurnBoundary:
             "How can I help you today?",
             "Great question.",
         ]
+
+
+class TestSetVoice:
+    """set_voice() must switch the voice without the deprecated set_model()."""
+
+    @pytest.mark.asyncio
+    async def test_set_voice_updates_model_without_deprecation_warning(self):
+        import warnings
+
+        tts = make_tts(voice="aura-2-thalia-en")
+        assert tts._settings.model == "aura-2-thalia-en"
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            await tts.set_voice("aura-2-orion-en")
+
+        assert tts._voice == "aura-2-orion-en"
+        assert tts._settings.model == "aura-2-orion-en"
