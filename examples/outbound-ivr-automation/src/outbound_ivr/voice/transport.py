@@ -64,6 +64,11 @@ class Transport(ABC):
     async def hang_up(self) -> None:
         """End the call from the agent's side."""
 
+    @abstractmethod
+    async def wait_for_team_join(self, timeout: float) -> str | None:
+        """Wait up to `timeout` seconds for a colleague to join the call; return their
+        identity, or `None` if nobody joined in time (`transfer_to_team`)."""
+
     def send_event(self, record: dict[str, Any]) -> None:
         """Forward one `EventLog` record upstream. No-op unless a transport overrides it."""
 
