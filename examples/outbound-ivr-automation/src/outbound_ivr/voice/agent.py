@@ -1618,6 +1618,10 @@ def write_case_record(state: CallState) -> None:
     not per pa_reference, because the dashboard API (lambdas/api/handler.py) lists
     `cases/{case_id}/` to find a case's calls. Otherwise falls back to
     runs/cases/<pa_reference>-<call_uuid>.json on local disk.
+
+    A failed S3 put (throttling, an expired role session, a bucket policy change) falls
+    back to that same local path rather than losing the record, and logs both the S3 key
+    it meant to write and where the body actually went, so it can be recovered by hand.
     """
     state.record["ended_at"] = datetime.now(UTC).isoformat()
     body = json.dumps(state.record, indent=2).encode("utf-8")
@@ -1625,10 +1629,22 @@ def write_case_record(state: CallState) -> None:
     bucket = os.environ.get("OUTBOUND_IVR_ARTIFACTS_BUCKET")
     if bucket:
         case_id = state.case_id or state.record["pa_reference"]
-        store = S3ArtifactStore()
-        location = store.put(
-            f"cases/{case_id}/{state.call_uuid}.json", body, content_type="application/json"
-        )
+        s3_key = f"cases/{case_id}/{state.call_uuid}.json"
+        try:
+            location = S3ArtifactStore().put(s3_key, body, content_type="application/json")
+        except Exception:
+            location = LocalArtifactStore(root=RUNS / "cases").put(
+                file_name, body, content_type="application/json"
+            )
+            logger.warning(
+                "case_record_s3_write_failed",
+                call_id=state.call_uuid,
+                bucket=bucket,
+                s3_key=s3_key,
+                fallback_location=location,
+                exc_info=True,
+            )
+            return
     else:
         store = LocalArtifactStore(root=RUNS / "cases")
         location = store.put(file_name, body, content_type="application/json")
@@ -1810,7 +1826,13 @@ async def handle_call(transport: Transport) -> None:
         # on the Evidence leg is still holding a live call to nobody. The record and the
         # recording are not time-critical; releasing the room is.
         await transport.close()
-        write_case_record(state)
+        # Guarded like every other step here: a failed write (S3 and its local fallback
+        # both) must not skip the recording upload, the backend's aclose, or closing the
+        # call log and level meter below.
+        try:
+            write_case_record(state)
+        except Exception:
+            logger.warning("case_record_write_failed", call_id=call_uuid, exc_info=True)
         upload_recording(transport)
         # GatewayBackend holds one MCP session open for the whole call (see its
         # own comment); release it here. LocalBackend has no aclose and needs none.
