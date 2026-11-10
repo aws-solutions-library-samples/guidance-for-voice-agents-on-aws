@@ -156,7 +156,12 @@ export class SageMakerStack extends cdk.Stack {
         this,
         'FluxSttEndpointConfig',
         {
-          endpointConfigName: `${resourcePrefix}-flux-stt-config`,
+          // No fixed endpointConfigName: every EndpointConfig property is
+          // immutable, so any change (like this PR's move to instance pools)
+          // makes CloudFormation replace the config, and CloudFormation cannot
+          // replace a custom-named resource. A generated name lets existing
+          // Flux deployments update in place; the endpoint itself keeps its
+          // fixed name and switches to the new config via UpdateEndpoint.
           productionVariants: [
             // Same STT instance pools as the Nova-3 endpoint, so an
             // InsufficientInstanceCapacity error falls back across GPU types
@@ -176,7 +181,7 @@ export class SageMakerStack extends cdk.Stack {
         'FluxSttEndpoint',
         {
           endpointName: fluxSttEndpointName,
-          endpointConfigName: fluxSttEndpointConfig.endpointConfigName!,
+          endpointConfigName: fluxSttEndpointConfig.attrEndpointConfigName,
         }
       );
       fluxSttEndpoint.addDependency(fluxSttEndpointConfig);

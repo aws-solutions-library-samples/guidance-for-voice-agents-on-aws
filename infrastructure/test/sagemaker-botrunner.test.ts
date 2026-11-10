@@ -161,10 +161,10 @@ describe('SageMakerStack with Flux STT enabled', () => {
 
   it('should create Flux STT endpoint config with the same instance pools as STT', () => {
     template.hasResourceProperties('AWS::SageMaker::EndpointConfig', {
-      EndpointConfigName: Match.stringLikeRegexp('flux-stt-config'),
       ProductionVariants: [
         Match.objectLike({
           VariantName: 'AllTraffic',
+          ModelName: Match.stringLikeRegexp('flux-stt-model'),
           InstanceType: Match.absent(),
           InstancePools: [
             Match.objectLike({ InstanceType: 'ml.g6.2xlarge', Priority: 1 }),
@@ -187,6 +187,20 @@ describe('SageMakerStack with Flux STT enabled', () => {
         expect(variant.InstancePools).toBeDefined();
       }
     }
+  });
+
+  it('should let CloudFormation name the Flux STT endpoint config so it can be replaced on update', () => {
+    const configs = template.findResources('AWS::SageMaker::EndpointConfig');
+    const [fluxId, flux] = Object.entries(configs).find(([, c]) =>
+      c.Properties.ProductionVariants.some((v: { ModelName: string }) =>
+        String(v.ModelName).includes('flux-stt-model')
+      )
+    )!;
+    expect(flux.Properties.EndpointConfigName).toBeUndefined();
+    template.hasResourceProperties('AWS::SageMaker::Endpoint', {
+      EndpointName: Match.stringLikeRegexp('flux-stt-endpoint'),
+      EndpointConfigName: { 'Fn::GetAtt': [fluxId, 'EndpointConfigName'] },
+    });
   });
 
   it('should create Flux STT endpoint and SSM parameter', () => {
