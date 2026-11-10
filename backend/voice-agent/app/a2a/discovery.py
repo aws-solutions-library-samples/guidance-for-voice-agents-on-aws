@@ -13,8 +13,8 @@ import os
 from dataclasses import dataclass
 from typing import List, Optional
 
-import aioboto3  # type: ignore[import-untyped]
 import structlog
+from aiobotocore.session import AioSession, get_session
 
 logger = structlog.get_logger(__name__)
 
@@ -39,7 +39,7 @@ class AgentEndpoint:
 async def discover_agents(
     namespace: str,
     region: Optional[str] = None,
-    session: Optional[aioboto3.Session] = None,
+    session: Optional[AioSession] = None,
 ) -> List[AgentEndpoint]:
     """Discover all healthy A2A agents in a CloudMap namespace.
 
@@ -50,19 +50,21 @@ async def discover_agents(
     Args:
         namespace: CloudMap HTTP namespace name (e.g., "voice-agent-capabilities")
         region: AWS region. Defaults to AWS_REGION env var.
-        session: Optional aioboto3 session for testing/injection.
+        session: Optional aiobotocore session for testing/injection.
 
     Returns:
         List of AgentEndpoint for each healthy agent instance.
         Empty list if no agents found or on error.
     """
     region = region or AWS_REGION
-    _session = session or aioboto3.Session()
+    _session = session or get_session()
 
     endpoints: List[AgentEndpoint] = []
 
     try:
-        async with _session.client("servicediscovery", region_name=region) as client:
+        async with _session.create_client(
+            "servicediscovery", region_name=region
+        ) as client:
             # First, find the namespace ID
             namespace_id = await _find_namespace_id(client, namespace)
             if not namespace_id:
@@ -118,7 +120,7 @@ async def _find_namespace_id(client, namespace_name: str) -> Optional[str]:
     """Find the CloudMap namespace ID by name.
 
     Args:
-        client: servicediscovery boto3 client
+        client: servicediscovery aiobotocore client
         namespace_name: Namespace name to look up
 
     Returns:
@@ -136,7 +138,7 @@ async def _list_services(client, namespace_id: str) -> List[str]:
     """List all service names in a CloudMap namespace.
 
     Args:
-        client: servicediscovery boto3 client
+        client: servicediscovery aiobotocore client
         namespace_id: CloudMap namespace ID
 
     Returns:
@@ -166,7 +168,7 @@ async def _discover_service_instances(
     """Discover healthy instances for a single CloudMap service.
 
     Args:
-        client: servicediscovery boto3 client
+        client: servicediscovery aiobotocore client
         namespace_name: CloudMap namespace name
         service_name: Service name to discover
 

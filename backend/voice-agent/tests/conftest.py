@@ -1,7 +1,7 @@
 """Shared test configuration and fixtures for voice-agent tests.
 
 Registers custom pytest markers and provides skip logic for tests
-that require container-only dependencies (pipecat, aiohttp, structlog, aioboto3).
+that require container-only dependencies (pipecat, aiohttp, structlog, aiobotocore).
 """
 
 import pytest
