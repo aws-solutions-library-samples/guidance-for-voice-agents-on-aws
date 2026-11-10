@@ -87,6 +87,22 @@ def test_lambda_reads_the_handoff_table_and_connect_can_invoke_it(escalation_tem
     assert integration["Properties"]["IntegrationType"] == "LAMBDA_FUNCTION"
 
 
+def test_lookup_lambda_can_claim_a_code_but_not_write_or_delete_items(
+    escalation_template,
+) -> None:
+    """The lookup marks a code used with one conditional UpdateItem; it never needs
+    PutItem or DeleteItem on the handoff table."""
+    actions: set[str] = set()
+    for policy in escalation_template.find_resources("AWS::IAM::Policy").values():
+        for statement in policy["Properties"]["PolicyDocument"]["Statement"]:
+            stmt_actions = statement["Action"]
+            stmt_actions = [stmt_actions] if isinstance(stmt_actions, str) else stmt_actions
+            actions.update(a for a in stmt_actions if a.startswith("dynamodb:"))
+    assert "dynamodb:UpdateItem" in actions
+    assert "dynamodb:GetItem" in actions
+    assert not actions & {"dynamodb:PutItem", "dynamodb:DeleteItem", "dynamodb:BatchWriteItem"}
+
+
 def test_queue_and_hours_of_operation(escalation_template) -> None:
     (queue,) = escalation_template.find_resources("AWS::Connect::Queue").values()
     assert queue["Properties"]["Name"] == "Evidence team"
