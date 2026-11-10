@@ -14,7 +14,7 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
  * availability - g6/g6e (L4/L40S) and g5 (A10G) are comparable for STT; g4dn
  * (T4) is the last resort since it's the slowest of the supported types.
  */
-export const STT_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolsProperty[] = [
+export const STT_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolProperty[] = [
   { instanceType: 'ml.g6.2xlarge', priority: 1 },
   { instanceType: 'ml.g6e.2xlarge', priority: 2 },
   { instanceType: 'ml.g5.2xlarge', priority: 3 },
@@ -27,7 +27,7 @@ export const STT_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolsProper
  * g4dn), so g4dn is the last-resort fallback rather than the primary or
  * secondary choice.
  */
-export const TTS_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolsProperty[] = [
+export const TTS_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolProperty[] = [
   { instanceType: 'ml.g6.12xlarge', priority: 1 },
   { instanceType: 'ml.g6e.12xlarge', priority: 2 },
   { instanceType: 'ml.g5.12xlarge', priority: 3 },
@@ -42,7 +42,7 @@ export const TTS_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolsProper
 export function pooledProductionVariant(
   modelName: string,
   initialInstanceCount: number,
-  instancePools: sagemaker.CfnEndpointConfig.InstancePoolsProperty[]
+  instancePools: sagemaker.CfnEndpointConfig.InstancePoolProperty[]
 ): sagemaker.CfnEndpointConfig.ProductionVariantProperty {
   return {
     variantName: 'AllTraffic',
