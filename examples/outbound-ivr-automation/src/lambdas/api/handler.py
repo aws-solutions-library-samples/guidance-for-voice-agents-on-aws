@@ -104,9 +104,23 @@ def _s3_client():
 
 def _agentcore_client():
     import boto3
+    from botocore.config import Config
 
+    # No automatic retries, unlike every other client here: this one's only call,
+    # `invoke_agent_runtime`, places a real outbound phone call and is not idempotent.
+    # boto3's default retry policy re-sends it after a read timeout, which can start a
+    # second call to the same office for the same case while the first is ringing. A
+    # failed invoke instead goes straight to `_release_case_claim` in
+    # `_start_call_via_agentcore`. `total_max_attempts`, not `max_attempts`: botocore
+    # reads `max_attempts` as retries *after* the first try, so `max_attempts: 1` still
+    # sends the request twice.
     return _cached(
-        "bedrock-agentcore", lambda: boto3.client("bedrock-agentcore", region_name=_region())
+        "bedrock-agentcore",
+        lambda: boto3.client(
+            "bedrock-agentcore",
+            region_name=_region(),
+            config=Config(retries={"total_max_attempts": 1, "mode": "standard"}),
+        ),
     )
 
 

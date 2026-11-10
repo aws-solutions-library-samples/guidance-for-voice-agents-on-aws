@@ -991,6 +991,43 @@ def test_a_released_case_can_be_dialed_again(aws, agentcore, monkeypatch):
     assert second["statusCode"] == 202, "the release must leave the case dialable"
 
 
+def test_the_agentcore_client_never_retries_invoke_agent_runtime(monkeypatch):
+    """`invoke_agent_runtime` places a real outbound phone call, so it is not
+    idempotent: boto3's default retries could re-send it after a read timeout and start
+    a second call for the same case. The client is built with a single attempt; a failed
+    invoke then goes straight to the release path above.
+
+    Sends one request that fails with a retryable 503 and counts how often it went out:
+    botocore's own `max_attempts: 1` would still send it twice."""
+    from botocore.awsrequest import AWSResponse
+    from botocore.exceptions import ClientError
+
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setattr(handler, "_clients", {})
+    client = handler._agentcore_client()
+    sent: list[str] = []
+
+    class _Raw:
+        def stream(self, **kwargs):
+            yield b""
+
+    def _answer_503(request, **kwargs):
+        sent.append(request.url)
+        return AWSResponse(request.url, 503, {}, _Raw())
+
+    client.meta.events.register("before-send.bedrock-agentcore.InvokeAgentRuntime", _answer_503)
+
+    with pytest.raises(ClientError):
+        client.invoke_agent_runtime(
+            agentRuntimeArn=RUNTIME_ARN, runtimeSessionId="x" * 33, payload=b"{}"
+        )
+
+    assert client.meta.config.retries["total_max_attempts"] == 1
+    assert len(sent) == 1, "invoke_agent_runtime must be sent exactly once, never retried"
+
+
 def test_missing_runtime_arn_does_not_claim_the_case(aws, monkeypatch):
     """A deploy that somehow left OUTBOUND_IVR_RUNTIME_ARN unset must fail clearly (500)
     rather than claiming a case it cannot start a call for."""
