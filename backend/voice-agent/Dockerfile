@@ -7,7 +7,7 @@
 #
 # Multi-stage build: build stage compiles any native extensions,
 # runtime stage contains only what's needed to run the application.
-# Note: pipecat v0.0.102 uses ONNX Runtime for Silero VAD (not PyTorch),
+# Note: pipecat uses ONNX Runtime for Silero VAD and Smart Turn (not PyTorch),
 # so torch/torchaudio are not needed.
 
 # ========================

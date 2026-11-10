@@ -321,8 +321,8 @@ mypy app/
 
 ```
 backend/voice-agent/
-├── Dockerfile              # Python 3.12 container image
-├── requirements.txt        # Production dependencies (pipecat-ai[sagemaker]==0.0.102)
+├── Dockerfile              # Python 3.13 container image (Amazon Linux 2023)
+├── requirements.txt        # Production dependencies (pipecat-ai==1.6.0)
 ├── requirements-dev.txt    # Development dependencies
 ├── entrypoint.sh           # Container entrypoint
 ├── app/
