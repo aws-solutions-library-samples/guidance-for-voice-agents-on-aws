@@ -5,6 +5,56 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
+/**
+ * STT instance pools (used by both the Nova-3 and optional Flux STT endpoints).
+ *
+ * SageMaker tries pools in priority order and falls back automatically on
+ * InsufficientInstanceCapacity (ICE), instead of failing the whole endpoint
+ * (and rolling back the stack). Ordered by inference performance, not just
+ * availability - g6/g6e (L4/L40S) and g5 (A10G) are comparable for STT; g4dn
+ * (T4) is the last resort since it's the slowest of the supported types.
+ */
+export const STT_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolsProperty[] = [
+  { instanceType: 'ml.g6.2xlarge', priority: 1 },
+  { instanceType: 'ml.g6e.2xlarge', priority: 2 },
+  { instanceType: 'ml.g5.2xlarge', priority: 3 },
+  { instanceType: 'ml.g4dn.2xlarge', priority: 4 },
+];
+
+/**
+ * TTS instance pools. Same rationale as STT_INSTANCE_POOLS. Ordered by
+ * measured TTS performance (realtime factor ~0.93 on g6/g5/g6e vs ~1.02 on
+ * g4dn), so g4dn is the last-resort fallback rather than the primary or
+ * secondary choice.
+ */
+export const TTS_INSTANCE_POOLS: sagemaker.CfnEndpointConfig.InstancePoolsProperty[] = [
+  { instanceType: 'ml.g6.12xlarge', priority: 1 },
+  { instanceType: 'ml.g6e.12xlarge', priority: 2 },
+  { instanceType: 'ml.g5.12xlarge', priority: 3 },
+  { instanceType: 'ml.g4dn.12xlarge', priority: 4 },
+];
+
+/**
+ * Build the single 'AllTraffic' production variant for a Deepgram endpoint
+ * config using instance pools. Shared by every Deepgram endpoint config so
+ * the pool ordering and provisioning timeout cannot drift between them.
+ */
+export function pooledProductionVariant(
+  modelName: string,
+  initialInstanceCount: number,
+  instancePools: sagemaker.CfnEndpointConfig.InstancePoolsProperty[]
+): sagemaker.CfnEndpointConfig.ProductionVariantProperty {
+  return {
+    variantName: 'AllTraffic',
+    modelName,
+    initialInstanceCount,
+    instancePools,
+    // Total time SageMaker spends falling back across pools before giving up.
+    variantInstanceProvisionTimeoutInSeconds: 1200,
+    initialVariantWeight: 1,
+    modelDataDownloadTimeoutInSeconds: 3600,
+  };
+}
 
 /**
  * Props for SageMakerEndpointConstruct
@@ -146,27 +196,7 @@ export class SageMakerEndpointConstruct extends Construct {
     const sttEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'SttEndpointConfig', {
       endpointConfigName: `${resourcePrefix}-stt-config`,
       productionVariants: [
-        {
-          variantName: 'AllTraffic',
-          modelName: sttModelName,
-          initialInstanceCount: isProd ? 2 : 1,
-          // Instance pools: SageMaker tries pools in priority order and falls
-          // back automatically on InsufficientInstanceCapacity (ICE), instead
-          // of failing the whole endpoint (and rolling back the stack).
-          // Ordered by inference performance, not just availability - g6/g6e
-          // (L4/L40S) and g5 (A10G) are comparable for STT; g4dn (T4) is the
-          // last resort since it's the slowest of the supported types.
-          instancePools: [
-            { instanceType: 'ml.g6.2xlarge', priority: 1 },
-            { instanceType: 'ml.g6e.2xlarge', priority: 2 },
-            { instanceType: 'ml.g5.2xlarge', priority: 3 },
-            { instanceType: 'ml.g4dn.2xlarge', priority: 4 },
-          ],
-          // Total time SageMaker spends falling back across pools before giving up.
-          variantInstanceProvisionTimeoutInSeconds: 1200,
-          initialVariantWeight: 1,
-          modelDataDownloadTimeoutInSeconds: 3600,
-        },
+        pooledProductionVariant(sttModelName, isProd ? 2 : 1, STT_INSTANCE_POOLS),
       ],
     });
     sttEndpointConfig.addDependency(sttModel);
@@ -200,24 +230,7 @@ export class SageMakerEndpointConstruct extends Construct {
     const ttsEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'TtsEndpointConfig', {
       endpointConfigName: `${resourcePrefix}-tts-config`,
       productionVariants: [
-        {
-          variantName: 'AllTraffic',
-          modelName: ttsModelName,
-          initialInstanceCount: isProd ? 2 : 1,
-          // Instance pools: same rationale as the STT variant above. Ordered
-          // by measured TTS performance (realtime factor ~0.93 on g6/g5/g6e
-          // vs ~1.02 on g4dn), so g4dn is the last-resort fallback rather
-          // than the primary or secondary choice.
-          instancePools: [
-            { instanceType: 'ml.g6.12xlarge', priority: 1 },
-            { instanceType: 'ml.g6e.12xlarge', priority: 2 },
-            { instanceType: 'ml.g5.12xlarge', priority: 3 },
-            { instanceType: 'ml.g4dn.12xlarge', priority: 4 },
-          ],
-          variantInstanceProvisionTimeoutInSeconds: 1200,
-          initialVariantWeight: 1,
-          modelDataDownloadTimeoutInSeconds: 3600,
-        },
+        pooledProductionVariant(ttsModelName, isProd ? 2 : 1, TTS_INSTANCE_POOLS),
       ],
     });
     ttsEndpointConfig.addDependency(ttsModel);
