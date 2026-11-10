@@ -39,7 +39,7 @@ Cloud API mode requires Deepgram and Cartesia API keys. Optionally use Deepgram 
 
 | Service | Limit | Default | Notes |
 | ------- | ----- | ------- | ----- |
-| Amazon SageMaker `ml.g6.2xlarge` | Endpoint instances | 0 | STT primary instance type. The STT endpoint also falls back to `ml.g6e.2xlarge` -> `ml.g5.2xlarge` -> `ml.g4dn.2xlarge` on capacity errors (see below), so request quota for all four if you can. |
+| Amazon SageMaker `ml.g6.2xlarge` | Endpoint instances | 0 | STT primary instance type (Nova-3 and the optional Flux STT endpoint). The STT endpoints also fall back to `ml.g6e.2xlarge` -> `ml.g5.2xlarge` -> `ml.g4dn.2xlarge` on capacity errors (see below), so request quota for all four if you can. |
 | Amazon SageMaker `ml.g6.12xlarge` | Endpoint instances | 0 | TTS primary instance type. Fallback order: `ml.g6e.12xlarge` -> `ml.g5.12xlarge` -> `ml.g4dn.12xlarge`. |
 | Amazon ECS Fargate | On-demand vCPU | 256 | Sufficient for default configuration |
 | Amazon Bedrock | Tokens per minute | Varies | Monitor throttling in Amazon CloudWatch |
@@ -48,9 +48,9 @@ Request service limit increases via the [Service Quotas console](https://console
 
 ### GPU capacity errors (InsufficientInstanceCapacity)
 
-The default GPU instance types (`ml.g6.2xlarge` for STT, `ml.g6.12xlarge` for TTS) can hit `InsufficientInstanceCapacity` in busy regions like `us-east-1`. As of [#30](https://github.com/aws-solutions-library-samples/sample-voice-agent/issues/30), both endpoint configs use SageMaker [instance pools](https://docs.aws.amazon.com/sagemaker/latest/dg/realtime-endpoints-heterogeneous.html): SageMaker tries the highest-priority instance type first and automatically falls back through a priority-ordered list on capacity errors, instead of failing outright.
+The default GPU instance types (`ml.g6.2xlarge` for STT, `ml.g6.12xlarge` for TTS) can hit `InsufficientInstanceCapacity` in busy regions like `us-east-1`. As of [#30](https://github.com/aws-solutions-library-samples/sample-voice-agent/issues/30), the STT and TTS endpoint configs use SageMaker [instance pools](https://docs.aws.amazon.com/sagemaker/latest/dg/realtime-endpoints-heterogeneous.html): SageMaker tries the highest-priority instance type first and automatically falls back through a priority-ordered list on capacity errors, instead of failing outright.
 
-- STT pool: `ml.g6.2xlarge` -> `ml.g6e.2xlarge` -> `ml.g5.2xlarge` -> `ml.g4dn.2xlarge`
+- STT pool (Nova-3, and Flux STT when enabled): `ml.g6.2xlarge` -> `ml.g6e.2xlarge` -> `ml.g5.2xlarge` -> `ml.g4dn.2xlarge`
 - TTS pool: `ml.g6.12xlarge` -> `ml.g6e.12xlarge` -> `ml.g5.12xlarge` -> `ml.g4dn.12xlarge`
 
 `g4dn` is intentionally last in both pools -- it's the slowest of the four (measured TTS realtime factor ~1.02 vs ~0.93 on g6/g5/g6e), so it's a fallback, not a first choice.

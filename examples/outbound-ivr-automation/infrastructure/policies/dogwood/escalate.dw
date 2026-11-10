@@ -1,0 +1,39 @@
+// Dogwood port of policies/escalate.cedar. escalate requires a non-empty reason.
+// Dogwood has no trim(); this catches the empty string, which is what the Nova Sonic
+// tool call will actually send if the model omits a reason (the field is required in
+// schema.json, but Policy is the independent check). Whitespace-only reasons ("   ")
+// pass this and are caught by outbound_ivr.tools.business.escalate in the Lambda, same as
+// record_item's per-case check.
+//
+// Deliberately NOT ported here: the LiveKit-mode-only rule in
+// src/outbound_ivr/voice/agent.py ("First bring in a colleague with transfer_to_team") that
+// refuses escalate until transfer_to_team has been tried and failed on this call,
+// unless there is no team_dialer to try it with at all. A Dogwood temporal rule can
+// express "transfer_to_team was attempted this session" (`formerly within` against
+// AgentCore::Action::"OutboundIvrTools___transfer_to_team"::request, see
+// policies/dogwood/transfer_to_team.dw for the same action name) -- see "Require a
+// prerequisite action", https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/
+// example-policies-temporal.html#example-policies-temporal-sequencing. It cannot
+// express "...unless there is no team_dialer for this session", because whether a
+// team_dialer exists is an application-level fact (which transport/backend this call
+// is running on) that never reaches the Gateway as an event; Dogwood's only documented
+// information provider beyond its event history is Amazon Bedrock Guardrails
+// (policy-temporal.html), nothing that exposes app configuration. Both Asterisk mode
+// and LiveKit mode call escalate through the one Gateway/Policy engine this repo
+// deploys (infra/stacks/agentcore_stack.py); Asterisk mode never calls
+// transfer_to_team at all (docs/escalation-handoff.md: "Asterisk mode keeps escalate
+// exactly as it is today... nothing in this file changes that path"). A temporal rule
+// requiring a prior transfer_to_team attempt would therefore deny every Asterisk-mode
+// escalate unconditionally, which contradicts that doc. The ordering rule stays
+// enforced only in src/outbound_ivr/voice/agent.py, which does have the team_dialer/mode
+// context to apply it correctly; see policies/README.md for the full writeup.
+permit(
+  principal,
+  action == AgentCore::Action::"OutboundIvrTools___escalate",
+  resource == AgentCore::Gateway::"${GATEWAY_ARN}"
+) when {
+  context.input has reason &&
+  context.input.reason != "" &&
+  context.input has case_id &&
+  context.input.case_id != ""
+};

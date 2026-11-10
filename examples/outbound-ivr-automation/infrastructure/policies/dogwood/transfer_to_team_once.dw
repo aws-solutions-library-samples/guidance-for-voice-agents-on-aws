@@ -1,0 +1,35 @@
+// Temporal half of the transfer_to_team rule: at most once per session, matching
+// src/outbound_ivr/voice/agent.py's `state.transfer_to_team_requested` guard ("Only call
+// this once per call. If you already called it once, do not call it again."). Pairs
+// with the plain permit in policies/dogwood/transfer_to_team.dw -- forbid always wins
+// over permit, so the two compose into "allowed once per session, with a non-empty
+// reason and case_id".
+//
+// Shape follows "Cap how many times an action runs",
+// https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/
+// example-policies-temporal.html#example-policies-temporal-rate-limit: `count` counts
+// matching events in the window, including the request being authorized, so the
+// second call in the window is the first to be denied (`n > 1`). The window is 24
+// hours, the documented maximum for a temporal condition (and the maximum trajectory
+// look-back a session keeps) -- there is no "for the rest of the session, however
+// long" window; 24h is as close as Dogwood's syntax gets, and matches
+// "Securing AI agents with temporal policies in Amazon Bedrock AgentCore"
+// (https://aws.amazon.com/blogs/machine-learning/securing-ai-agents-with-temporal-policies-in-amazon-bedrock-agentcore/):
+// "agent trajectories carry a maximum look-back window of 24 hours."
+//
+// Per-session caps are a behavior-shaping control, not a security boundary: the
+// caller supplies the session ID, so a caller who controls it could reset the count by
+// starting a new session (same caveat the AWS doc gives for its own rate-limit
+// example). outbound_ivr.tools.business and src/outbound_ivr/voice/agent.py do not independently
+// re-check this across a session restart either, so this is a documented, matched gap,
+// not a new one.
+forbid(
+  principal,
+  action == AgentCore::Action::"OutboundIvrTools___transfer_to_team",
+  resource == AgentCore::Gateway::"${GATEWAY_ARN}"
+) when temporal {
+  exists (n: Long).
+    (count for (t: Timepoint).
+      where (formerly within 24h (AgentCore::Action::"OutboundIvrTools___transfer_to_team"::request{ eventResource: resource } && tp(t)))) == n
+    && n > 1
+};

@@ -1,0 +1,25 @@
+// Dogwood port of policies/transfer_to_team.cedar. transfer_to_team requires a
+// non-empty reason, same rule as escalate.dw. Also requires case_id non-empty, for the
+// same reason escalate.dw gives: Policy is the independent check, not a rubber stamp
+// on what lambdas/tools/schema.json already marks required. Whitespace-only reasons
+// ("   ") pass this and are caught by outbound_ivr.tools.business.transfer_to_team in the
+// Lambda, same as escalate's own check.
+//
+// The "at most once per session" half of this tool's rule
+// (src/outbound_ivr/voice/agent.py's `state.transfer_to_team_requested` guard) is a separate
+// Dogwood temporal policy, policies/dogwood/transfer_to_team_once.dw -- a `forbid` on
+// the second-and-later attempt, which composes with this `permit` because forbid
+// always overrides permit within a policy engine regardless of which file either rule
+// lives in (see "Temporal policies", https://docs.aws.amazon.com/bedrock-agentcore/
+// latest/devguide/policy-temporal.html: "You write permit and forbid rules... A
+// request is allowed only when a permit applies and no forbid overrides it").
+permit(
+  principal,
+  action == AgentCore::Action::"OutboundIvrTools___transfer_to_team",
+  resource == AgentCore::Gateway::"${GATEWAY_ARN}"
+) when {
+  context.input has reason &&
+  context.input.reason != "" &&
+  context.input has case_id &&
+  context.input.case_id != ""
+};

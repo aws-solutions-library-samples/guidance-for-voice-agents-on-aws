@@ -4,7 +4,11 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { VoiceAgentConfig } from '../config';
 import { SSM_PARAMS } from '../ssm-parameters';
-import { SageMakerEndpointConstruct } from '../constructs';
+import {
+  SageMakerEndpointConstruct,
+  STT_INSTANCE_POOLS,
+  pooledProductionVariant,
+} from '../constructs';
 
 /**
  * Props for SageMakerStack
@@ -152,16 +156,21 @@ export class SageMakerStack extends cdk.Stack {
         this,
         'FluxSttEndpointConfig',
         {
-          endpointConfigName: `${resourcePrefix}-flux-stt-config`,
+          // No fixed endpointConfigName: every EndpointConfig property is
+          // immutable, so any change (like this PR's move to instance pools)
+          // makes CloudFormation replace the config, and CloudFormation cannot
+          // replace a custom-named resource. A generated name lets existing
+          // Flux deployments update in place; the endpoint itself keeps its
+          // fixed name and switches to the new config via UpdateEndpoint.
           productionVariants: [
-            {
-              variantName: 'AllTraffic',
-              modelName: fluxSttModelName,
-              initialInstanceCount: config.environment === 'prod' ? 2 : 1,
-              instanceType: 'ml.g6.2xlarge',
-              initialVariantWeight: 1,
-              modelDataDownloadTimeoutInSeconds: 3600,
-            },
+            // Same STT instance pools as the Nova-3 endpoint, so an
+            // InsufficientInstanceCapacity error falls back across GPU types
+            // instead of failing the endpoint and rolling back the stack.
+            pooledProductionVariant(
+              fluxSttModelName,
+              config.environment === 'prod' ? 2 : 1,
+              STT_INSTANCE_POOLS
+            ),
           ],
         }
       );
@@ -172,7 +181,7 @@ export class SageMakerStack extends cdk.Stack {
         'FluxSttEndpoint',
         {
           endpointName: fluxSttEndpointName,
-          endpointConfigName: fluxSttEndpointConfig.endpointConfigName!,
+          endpointConfigName: fluxSttEndpointConfig.attrEndpointConfigName,
         }
       );
       fluxSttEndpoint.addDependency(fluxSttEndpointConfig);

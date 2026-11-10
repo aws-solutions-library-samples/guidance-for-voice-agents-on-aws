@@ -1,0 +1,109 @@
+{
+  "_comment": "Gateway tool schemas for the 'outbound-ivr-tools' Lambda target. Mirrors outbound_ivr.prompts.TOOLS plus the case_id/call fields the Lambda needs (the Nova Sonic model doesn't see those two; CDK/the agent's MCP binding should inject them, see docs/design.md 'Tools').",
+  "tools": [
+    {
+      "name": "record_item",
+      "description": "Save one confirmed piece of missing prior-auth documentation. Only accepted for a key that is one of this case's missing items.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "description": "The case this call is working."
+          },
+          "call": {
+            "type": "string",
+            "description": "The call UUID, for the evidence record."
+          },
+          "key": {
+            "type": "string",
+            "description": "Which missing item this answers."
+          },
+          "value": {
+            "type": "string",
+            "description": "The answer as a short factual statement in the caller's words."
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "True only if the caller confirmed the read-back."
+          }
+        },
+        "required": ["case_id", "call", "key", "value", "confirmed"]
+      }
+    },
+    {
+      "name": "escalate",
+      "description": "Stop collecting and hand the call to a human on the payer side.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "description": "The case this call is working."
+          },
+          "call": {
+            "type": "string",
+            "description": "The call UUID, for the evidence record."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the call is being escalated. Required, must not be empty."
+          },
+          "follow_up": {
+            "type": "string",
+            "description": "Who to follow up with and when, if the caller offered it."
+          }
+        },
+        "required": ["case_id", "call", "reason"]
+      }
+    },
+    {
+      "name": "complete",
+      "description": "Finish the call after all items are collected or accounted for. If any of the case's missing items are not yet confirmed, this escalates instead.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "description": "The case this call is working."
+          },
+          "call": {
+            "type": "string",
+            "description": "The call UUID, for the evidence record."
+          },
+          "summary": {
+            "type": "string",
+            "description": "One or two sentences on what the office will send and when."
+          }
+        },
+        "required": ["case_id", "call", "summary"]
+      }
+    },
+    {
+      "name": "transfer_to_team",
+      "description": "Bring a human colleague onto the live call (LiveKit mode only). Unlike escalate, the call keeps going: a colleague joins instead of the call ending.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "description": "The case this call is working."
+          },
+          "call": {
+            "type": "string",
+            "description": "The call UUID, for the evidence record."
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why the call needs a person. Required, must not be empty."
+          },
+          "summary": {
+            "type": "string",
+            "description": "What the case needs, what has been collected so far, and what's still missing."
+          }
+        },
+        "required": ["case_id", "call", "reason", "summary"]
+      }
+    }
+  ]
+}
