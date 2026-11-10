@@ -79,6 +79,8 @@ class TestCreateLlmService:
         assert mock_bedrock_class.Settings.call_args[1]["model"] == "us.anthropic.claude-haiku-4-5-20251001-v1:0"
         assert call_kwargs["settings"] is mock_bedrock_class.Settings.return_value
         assert call_kwargs["region"] == "us-east-1"
+        # pipecat 1.x has no default tool timeout; keep the 0.0.x 10 s bound
+        assert call_kwargs["function_call_timeout_secs"] == 10.0
 
     @patch("pipecat.services.aws.llm.AWSBedrockLLMService")
     def test_nemotron_creates_bedrock_service(self, mock_bedrock_class):
@@ -112,6 +114,7 @@ class TestCreateLlmService:
         assert call_kwargs["settings"] is mock_openai_class.Settings.return_value
         assert call_kwargs["api_key"] == "test-bedrock-key"
         assert call_kwargs["base_url"] == "https://bedrock-mantle.us-east-1.api.aws/openai/v1"
+        assert call_kwargs["function_call_timeout_secs"] == 10.0
 
     @patch.dict(os.environ, {}, clear=True)
     def test_gpt_luna_requires_api_key(self):

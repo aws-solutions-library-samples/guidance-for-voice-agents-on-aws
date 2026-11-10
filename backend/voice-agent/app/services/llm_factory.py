@@ -100,6 +100,13 @@ def is_mantle_model(model_id: str) -> bool:
     return model_id in MANTLE_MODELS
 
 
+# Upper bound on how long the LLM waits for a tool result before continuing
+# without one. pipecat-ai 0.0.x applied 10 s by default; 1.x defaults to no
+# timeout, which would let a slow tool (e.g. a 30 s A2A call) leave the caller
+# in silence. Keep the previous 10 s bound explicitly.
+FUNCTION_CALL_TIMEOUT_SECS = 10.0
+
+
 def create_llm_service(model_id: str, region: str):
     """Create the appropriate LLM service for the given model.
 
@@ -130,6 +137,7 @@ def create_llm_service(model_id: str, region: str):
         return OpenAILLMService(
             api_key=api_key,
             base_url=base_url,
+            function_call_timeout_secs=FUNCTION_CALL_TIMEOUT_SECS,
             settings=OpenAILLMService.Settings(
                 model=model_id,
                 max_tokens=256,
@@ -149,6 +157,7 @@ def create_llm_service(model_id: str, region: str):
 
         return AWSBedrockLLMService(
             region=region,
+            function_call_timeout_secs=FUNCTION_CALL_TIMEOUT_SECS,
             settings=AWSBedrockLLMService.Settings(
                 model=model_id,
                 max_tokens=256,
