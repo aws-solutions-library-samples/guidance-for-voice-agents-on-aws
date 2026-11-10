@@ -18,6 +18,11 @@ from typing import Any, Dict, List, Optional
 # Skip all tests in this module if AWS credentials aren't available
 pytestmark = pytest.mark.integration
 
+# Same model the app uses by default (LLM_MODEL_ID in pipeline_ecs.py). The
+# previous Claude 3.5 Haiku profile reached end of life and every call failed
+# with ResourceNotFoundException.
+MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
 
 def get_bedrock_client():
     """Get a Bedrock runtime client."""
@@ -90,7 +95,7 @@ class TestBedrockToolCalling:
         client = get_bedrock_client()
 
         response = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=[{"role": "user", "content": [{"text": "What time is it?"}]}],
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -112,7 +117,7 @@ class TestBedrockToolCalling:
 
         # First turn: user asks for time
         response1 = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=[{"role": "user", "content": [{"text": "What time is it?"}]}],
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -152,7 +157,7 @@ class TestBedrockToolCalling:
         ]
 
         response2 = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=messages,
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -189,7 +194,7 @@ class TestPreToolTextBehavior:
 
         for _ in range(trials):
             response = client.converse(
-                modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+                modelId=MODEL_ID,
                 messages=[{"role": "user", "content": [{"text": "What time is it?"}]}],
                 system=[{"text": SYSTEM_PROMPT_NEW}],
                 toolConfig={"tools": TOOLS},
@@ -220,7 +225,7 @@ class TestPreToolTextBehavior:
         client = get_bedrock_client()
 
         response = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=[{"role": "user", "content": [{"text": "Echo hello"}]}],
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -257,7 +262,7 @@ class TestContextStructure:
 
         # Get a tool call
         response1 = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=[{"role": "user", "content": [{"text": "Echo hello world"}]}],
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -299,7 +304,7 @@ class TestContextStructure:
 
         # This should succeed without validation errors
         response2 = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=messages,
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -354,7 +359,7 @@ class TestContextStructure:
 
         # This should still work, but might produce confused or empty responses
         response = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=messages,
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -380,7 +385,7 @@ class TestMultipleToolCalls:
         messages.append({"role": "user", "content": [{"text": "What time is it?"}]})
 
         response1 = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=messages,
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
@@ -409,7 +414,7 @@ class TestMultipleToolCalls:
 
             # Get response to tool result
             response2 = client.converse(
-                modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+                modelId=MODEL_ID,
                 messages=messages,
                 system=[{"text": SYSTEM_PROMPT_NEW}],
                 toolConfig={"tools": TOOLS},
@@ -421,7 +426,7 @@ class TestMultipleToolCalls:
         messages.append({"role": "user", "content": [{"text": "Now echo hello"}]})
 
         response3 = client.converse(
-            modelId="us.anthropic.claude-3-5-haiku-20241022-v1:0",
+            modelId=MODEL_ID,
             messages=messages,
             system=[{"text": SYSTEM_PROMPT_NEW}],
             toolConfig={"tools": TOOLS},
