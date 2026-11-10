@@ -13,15 +13,15 @@ try:
     )
 except ImportError:
     pytest.skip(
-        "Container-only dependencies not available (structlog/aioboto3)",
+        "Container-only dependencies not available (structlog/aiobotocore)",
         allow_module_level=True,
     )
 
 
 def _make_paginator(pages_fn):
-    """Create a mock paginator that works with aioboto3's async for pattern.
+    """Create a mock paginator that works with aiobotocore's async for pattern.
 
-    aioboto3's get_paginator() is sync, but paginator.paginate() returns
+    aiobotocore's get_paginator() is sync, but paginator.paginate() returns
     an async iterator. We need MagicMock (not AsyncMock) for get_paginator.
     """
     paginator = MagicMock()
@@ -257,7 +257,7 @@ class TestDiscoverAgents:
             }
         )
 
-        # Mock aioboto3 session
+        # Mock aiobotocore session
         mock_session = MagicMock()
 
         class MockContextManager:
@@ -267,7 +267,7 @@ class TestDiscoverAgents:
             async def __aexit__(self, *args):
                 pass
 
-        mock_session.client.return_value = MockContextManager()
+        mock_session.create_client.return_value = MockContextManager()
 
         result = await discover_agents(
             "voice-agent-capabilities",
@@ -296,7 +296,7 @@ class TestDiscoverAgents:
             async def __aexit__(self, *args):
                 pass
 
-        mock_session.client.return_value = MockContextManager()
+        mock_session.create_client.return_value = MockContextManager()
 
         result = await discover_agents("nonexistent-ns", session=mock_session)
         assert result == []
@@ -312,7 +312,7 @@ class TestDiscoverAgents:
             async def __aexit__(self, *args):
                 pass
 
-        mock_session.client.return_value = MockContextManager()
+        mock_session.create_client.return_value = MockContextManager()
 
         result = await discover_agents("voice-agent-capabilities", session=mock_session)
         assert result == []
@@ -366,7 +366,7 @@ class TestDiscoverAgents:
             async def __aexit__(self, *args):
                 pass
 
-        mock_session.client.return_value = MockContextManager()
+        mock_session.create_client.return_value = MockContextManager()
 
         result = await discover_agents("ns", session=mock_session)
 

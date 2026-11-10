@@ -18,7 +18,7 @@ try:
     from pipecat.adapters.schemas.function_schema import FunctionSchema
 except ImportError:
     pytest.skip(
-        "Container-only dependencies not available (structlog/aioboto3)",
+        "Container-only dependencies not available (structlog/aiobotocore)",
         allow_module_level=True,
     )
 

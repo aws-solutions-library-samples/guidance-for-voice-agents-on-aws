@@ -26,9 +26,11 @@ aws_sdk_sagemaker_runtime_http2>=0.9.0,<0.10
 # app/local_main.py at import time.
 starlette<1.0
 
-# AWS SDK - let pip resolve version to match aiobotocore requirements
-# aiobotocore 2.25.1 requires botocore>=1.40.46
+# AWS SDK - let pip resolve versions to match pipecat-ai[aws]
 # Do NOT pin boto3/botocore here - it conflicts with pipecat[aws]
+# aiobotocore is used directly for CloudMap discovery (app/a2a/discovery.py);
+# its version range comes from pipecat-ai[aws].
+aiobotocore
 
 # Audio processing
 soundfile>=0.12.1

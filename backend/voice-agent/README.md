@@ -353,7 +353,7 @@ backend/voice-agent/
 │   │   │                        #   skill-to-toolSpec conversion, background refresh
 │   │   ├── tool_adapter.py      # Bridges A2A agents into Pipecat tool calling
 │   │   │                        #   with TTL response caching
-│   │   └── discovery.py         # CloudMap service discovery (aioboto3)
+│   │   └── discovery.py         # CloudMap service discovery (aiobotocore)
 │   └── tools/
 │       ├── __init__.py
 │       ├── registry.py          # Tool registry
