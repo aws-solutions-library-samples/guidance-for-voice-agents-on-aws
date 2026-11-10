@@ -49,7 +49,8 @@ Skip the quality bar. Check only:
 | Model IDs current | Every model ID is verified against the current Amazon Bedrock model lifecycle status (check the documentation now, not from memory); no legacy or end-of-life IDs |
 | IAM | Least-privilege policies; no `*FullAccess` managed policies or unscoped `"*"` actions |
 | Cleanup | Cleanup removes every resource the example creates (compare against the stacks and resources defined in `infrastructure/`) |
-| Cost | Real estimate with region and assumptions, not "varies" |
+| Cost | Real estimate with region and assumptions, not "varies"; starts with the cost responsibility line |
+| Notices | Last section; matches the TEMPLATE's shared responsibility paragraph and AWS notice verbatim |
 | Tests | Tests exist and run without AWS credentials (run them with AWS credentials unset) |
 | Index row | `examples/README.md` has a row `[<slug>](<slug>/) \| <use case>` (Example \| Use case, no status column) and the link resolves |
 

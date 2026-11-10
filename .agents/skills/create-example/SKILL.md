@@ -52,7 +52,7 @@ cp -r examples/TEMPLATE examples/<slug>
 
 Then fill `examples/<slug>/README.md`:
 - Replace the H1 with the example title.
-- Fill every H2 section (Overview, Relationship to main guidance, Architecture, Prerequisites, Deploy, Try it, Cost, Cleanup, Troubleshooting) and remove the HTML-comment hints once filled.
+- Fill every H2 section (Overview, Relationship to main guidance, Architecture, Prerequisites, Deploy, Try it, Cost, Cleanup, Troubleshooting, Notices) and remove the HTML-comment hints once filled.
 - **Architecture**: a Mermaid diagram (no ASCII art).
 - **Cost**: a real monthly estimate with region and usage assumptions, broken down by service -- never "varies".
 - **Cleanup**: commands that remove every resource the example creates.

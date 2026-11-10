@@ -34,6 +34,7 @@ These rules apply to everything under `examples/`. The conventions in the root [
 - Grant least-privilege IAM. Never use `*FullAccess` managed policies.
 - Make Cleanup remove every resource the example creates.
 - Make tests run without AWS credentials.
+- Keep the TEMPLATE's shared responsibility paragraph, cost responsibility line and Notices section (shared responsibility paragraph plus the AWS notice) verbatim. Document example-specific security limitations in the README.
 
 ## Definition of done
 
