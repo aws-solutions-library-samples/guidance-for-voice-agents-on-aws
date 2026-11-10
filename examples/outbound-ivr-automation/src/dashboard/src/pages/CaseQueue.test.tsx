@@ -178,3 +178,31 @@ describe("CaseQueue: Edit case dialog", () => {
     expect(screen.getByRole("dialog")).toBeTruthy()
   })
 })
+
+describe("CaseQueue: a case on a live call", () => {
+  // The Runtime marks a case "calling" once the office has been dialed.
+  beforeEach(() => {
+    vi.mocked(getCases).mockResolvedValue([{ ...CASE, status: "calling" }])
+  })
+
+  it("can't be dialed again", async () => {
+    renderQueue()
+    const button = await screen.findByRole("button", { name: /start call/i })
+    expect((button as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("locks the edit form but still allows Reset", async () => {
+    renderQueue()
+    fireEvent.click(await screen.findByRole("button", { name: /edit case case-1/i }))
+
+    const dialog = await screen.findByRole("dialog")
+    expect(within(dialog).getByText(/on a live call/i)).toBeTruthy()
+    expect((within(dialog).getByLabelText(/status/i) as HTMLSelectElement).disabled).toBe(true)
+    expect(
+      (within(dialog).getByRole("button", { name: /^save$/i }) as HTMLButtonElement).disabled,
+    ).toBe(true)
+    expect(
+      (within(dialog).getByRole("button", { name: /reset case/i }) as HTMLButtonElement).disabled,
+    ).toBe(false)
+  })
+})

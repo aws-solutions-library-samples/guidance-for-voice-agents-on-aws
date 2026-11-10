@@ -188,7 +188,8 @@ class AgentRuntimeNestedStack(NestedStack):
                 resources=[cases_table.table_arn, offices_table.table_arn],
             )
         )
-        # At call end: read the call's handoff event, close out the case item.
+        # Once dialed: mark the case "calling". At call end: read the call's handoff
+        # event, close out the case item.
         self.execution_role.add_to_policy(
             iam.PolicyStatement(
                 sid="RecordCaseOutcome",
