@@ -27,7 +27,7 @@ def patch_sagemaker_bidi_credentials():
         return
     _patched = True
 
-    from aws_sdk_sagemaker_runtime_http2.client import SageMakerRuntimeHTTP2Client
+    from aws_sdk_sagemaker_runtime_http2.client import AsyncSageMakerRuntimeHTTP2Client
     from aws_sdk_sagemaker_runtime_http2.config import Config, HTTPAuthSchemeResolver
     from smithy_aws_core.auth.sigv4 import SigV4AuthScheme
     from smithy_aws_core.identity import EnvironmentCredentialsResolver
@@ -73,7 +73,7 @@ def patch_sagemaker_bidi_credentials():
             auth_scheme_resolver=HTTPAuthSchemeResolver(),
             auth_schemes={"aws.auth#sigv4": SigV4AuthScheme(service="sagemaker")},
         )
-        self._client = SageMakerRuntimeHTTP2Client(config=config)
+        self._client = AsyncSageMakerRuntimeHTTP2Client(config=config)
         logger.debug("sagemaker_bidi_client_initialized", resolver="chained_credential")
 
     SageMakerBidiClient._initialize_client = _patched_initialize_client
