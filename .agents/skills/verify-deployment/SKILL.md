@@ -117,7 +117,7 @@ Secrets:
   ✅ CARTESIA_API_KEY — configured (38 chars)
 
 Webhook:
-  ✅ Endpoint responding — HTTP 200
+  ✅ Endpoint responding — HTTP 401 (unsigned request rejected)
   📍 URL: https://xxxxx.execute-api.us-east-1.amazonaws.com/poc/start
 
 Overall: ✅ All checks passed
@@ -139,6 +139,10 @@ For each failure, provide specific, actionable remediation:
 **Secrets missing:**
 - "API keys haven't been configured. Run `cd infrastructure && ./scripts/init-secrets.sh` to set them up."
 - If specifically DAILY_API_KEY is missing: "You need a Daily.co API key. Run the configure-daily skill to set up your phone number and API key."
+
+**Webhook returns 401:** Expected for the unsigned health-check request; the endpoint is up and enforcing authentication.
+
+**Webhook returns 500:** Check the Lambda logs for `Webhook rejected: daily_hmac_secret_not_configured`. Add `DAILY_HMAC_SECRET` to `backend/voice-agent/.env` and run `cd infrastructure && ./scripts/init-secrets.sh`.
 
 **Webhook not responding:**
 - "The Lambda function isn't responding. Check:"

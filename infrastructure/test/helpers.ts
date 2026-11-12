@@ -43,6 +43,8 @@ export const ECS_SSM_CONTEXT: Record<string, string> = {
 
 export const BOTRUNNER_SSM_CONTEXT: Record<string, string> = {
   ...ECS_SSM_CONTEXT,
+  [`ssm:account=${TEST_ENV.account}:parameterName=${SSM_PARAMS.WEBHOOK_SECRET_ARN}:region=${TEST_ENV.region}`]:
+    'arn:aws:secretsmanager:us-east-1:123456789012:secret:test-webhook-secret',
   [`ssm:account=${TEST_ENV.account}:parameterName=${SSM_PARAMS.LAMBDA_SG_ID}:region=${TEST_ENV.region}`]:
     'sg-lambda12345',
   [`ssm:account=${TEST_ENV.account}:parameterName=${SSM_PARAMS.ECS_CLUSTER_ARN}:region=${TEST_ENV.region}`]:

@@ -22,6 +22,8 @@ export interface WebhookApiConstructProps {
   lambdaSecurityGroup: ec2.ISecurityGroup;
   /** API Key Secret ARN */
   apiKeySecretArn: string;
+  /** Webhook authentication secret ARN (DAILY_HMAC_SECRET, SIP_WEBHOOK_SECRET) */
+  webhookSecretArn: string;
   /** KMS Encryption Key ARN for decrypting secrets */
   encryptionKeyArn: string;
   /** ECS Cluster ARN */
@@ -34,6 +36,10 @@ export interface WebhookApiConstructProps {
   ecsServiceEndpoint: string;
   /** Private subnet IDs for ECS tasks */
   privateSubnetIds: string;
+  /** API Gateway stage steady-state request limit (requests/second). Default: 10 */
+  throttlingRateLimit?: number;
+  /** API Gateway stage burst request limit. Default: 20 */
+  throttlingBurstLimit?: number;
 }
 
 /**
@@ -76,6 +82,7 @@ export class WebhookApiConstruct extends Construct {
       environment: {
         ECS_SERVICE_ENDPOINT: props.ecsServiceEndpoint,
         DAILY_API_KEY_SECRET_ARN: props.apiKeySecretArn,
+        WEBHOOK_SECRET_ARN: props.webhookSecretArn,
         LOG_LEVEL: 'INFO',
       },
     });
@@ -85,7 +92,7 @@ export class WebhookApiConstruct extends Construct {
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [props.apiKeySecretArn],
+        resources: [props.apiKeySecretArn, props.webhookSecretArn],
       })
     );
 
@@ -110,10 +117,14 @@ export class WebhookApiConstruct extends Construct {
     // Note: Lambda calls the ECS service via HTTP, so no ECS task permissions needed
 
     // API Gateway for webhook endpoint
+    // Requests are authenticated in the Lambda (Daily HMAC or SIP shared secret);
+    // stage throttling is a backstop against floods of unauthenticated requests.
     this.api = new apigateway.RestApi(this, 'WebhookApi', {
       description: `Daily webhook endpoint for Voice Agent - ${props.environment}`,
       deployOptions: {
         stageName: props.environment,
+        throttlingRateLimit: props.throttlingRateLimit ?? 10,
+        throttlingBurstLimit: props.throttlingBurstLimit ?? 20,
       },
     });
 

@@ -16,6 +16,7 @@ export const SSM_PARAMS = {
 
   // Storage stack outputs
   API_KEY_SECRET_ARN: '/voice-agent/storage/api-key-secret-arn',
+  WEBHOOK_SECRET_ARN: '/voice-agent/storage/webhook-secret-arn',
   ENCRYPTION_KEY_ARN: '/voice-agent/storage/encryption-key-arn',
 
   // SageMaker stack outputs

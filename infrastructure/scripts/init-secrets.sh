@@ -6,6 +6,9 @@
 #   - DEEPGRAM_API_KEY: For STT (Speech-to-Text)
 #   - CARTESIA_API_KEY: For TTS (Text-to-Speech)
 #   - DAILY_API_KEY: For Daily.co WebRTC transport
+#   - DAILY_HMAC_SECRET: Daily pinless dial-in HMAC, verifies PSTN webhooks
+#   - SIP_WEBHOOK_SECRET: Shared secret for SIP requests (optional override;
+#     a random value is generated when the Storage stack is deployed)
 
 set -e
 
@@ -127,6 +130,56 @@ else
     echo -e "${RED}✗ Failed to update secrets${NC}"
     echo "Check your AWS credentials and permissions"
     exit 1
+fi
+
+# Update webhook authentication secret (read only by the BotRunner Lambda).
+# Only keys set in .env are written; other keys keep their current value.
+if [ "$DAILY_HMAC_SECRET" == "null" ]; then
+    DAILY_HMAC_SECRET=""
+fi
+echo ""
+echo "Updating webhook authentication secret..."
+WEBHOOK_SECRET_ARN=$(aws ssm get-parameter \
+    --name "/${PROJECT_NAME}/storage/webhook-secret-arn" \
+    --region "$AWS_REGION" \
+    --query 'Parameter.Value' \
+    --output text 2>/dev/null || echo "")
+
+if [ -z "$WEBHOOK_SECRET_ARN" ] || [ "$WEBHOOK_SECRET_ARN" == "None" ]; then
+    echo -e "${YELLOW}! Webhook secret not found in SSM - redeploy the Storage stack:${NC}"
+    echo "    ./deploy.sh deploy-stack VoiceAgentStorage"
+elif [ -z "$DAILY_HMAC_SECRET" ] && [ -z "$SIP_WEBHOOK_SECRET" ]; then
+    echo -e "${YELLOW}! DAILY_HMAC_SECRET not set - PSTN calls are rejected until it is configured${NC}"
+    echo "  Run ./scripts/setup-daily.sh (or add DAILY_HMAC_SECRET to .env) and re-run this script"
+elif ! command -v jq &> /dev/null; then
+    echo -e "${RED}✗ jq is required to update the webhook secret${NC}"
+    echo "Install with: brew install jq (macOS) or apt-get install jq (Linux)"
+    exit 1
+else
+    CURRENT_WEBHOOK_SECRET=$(aws secretsmanager get-secret-value \
+        --secret-id "$WEBHOOK_SECRET_ARN" \
+        --region "$AWS_REGION" \
+        --query 'SecretString' \
+        --output text)
+    WEBHOOK_SECRET_VALUE=$(echo "$CURRENT_WEBHOOK_SECRET" | jq -c \
+        --arg hmac "${DAILY_HMAC_SECRET:-}" \
+        --arg sip "${SIP_WEBHOOK_SECRET:-}" \
+        '(if $hmac != "" then .DAILY_HMAC_SECRET = $hmac else . end)
+         | (if $sip != "" then .SIP_WEBHOOK_SECRET = $sip else . end)')
+
+    if aws secretsmanager put-secret-value \
+        --secret-id "$WEBHOOK_SECRET_ARN" \
+        --secret-string "$WEBHOOK_SECRET_VALUE" \
+        --region "$AWS_REGION" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Webhook secret updated successfully${NC}"
+        echo "  - DAILY_HMAC_SECRET (PSTN): $([ -n "$DAILY_HMAC_SECRET" ] && echo "✓ Set" || echo "- Unchanged")"
+        echo "  - SIP_WEBHOOK_SECRET (SIP): $([ -n "$SIP_WEBHOOK_SECRET" ] && echo "✓ Set" || echo "- Unchanged")"
+        echo "  The webhook Lambda picks up new values within 5 minutes."
+    else
+        echo -e "${RED}✗ Failed to update webhook secret${NC}"
+        echo "Check your AWS credentials and permissions"
+        exit 1
+    fi
 fi
 
 echo ""

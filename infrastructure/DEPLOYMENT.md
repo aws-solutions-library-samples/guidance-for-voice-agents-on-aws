@@ -139,6 +139,8 @@ After running, sync the updated secrets to AWS:
 ./scripts/init-secrets.sh
 ```
 
+This stores `DAILY_HMAC_SECRET` in the webhook secret. The webhook rejects PSTN calls that are not signed by Daily, and returns `500` until `DAILY_HMAC_SECRET` is configured. See [Webhook Authentication](../docs/reference/daily-setup.md#webhook-authentication).
+
 For manual setup or troubleshooting, see [Daily.co Setup Guide](../docs/reference/daily-setup.md).
 
 > **Note:** It can take a few minutes for Daily.co to fully provision the phone number and activate dial-in routing. If the first call doesn't connect, wait 2-3 minutes and try again.

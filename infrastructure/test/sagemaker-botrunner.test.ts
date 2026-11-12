@@ -269,6 +269,50 @@ describe('BotRunnerStack', () => {
     });
   });
 
+  it('should grant Lambda read access to exactly the API key and webhook secrets', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'secretsmanager:GetSecretValue',
+            Effect: 'Allow',
+            Resource: [
+              BOTRUNNER_SSM_CONTEXT[
+                `ssm:account=${TEST_ENV.account}:parameterName=${SSM_PARAMS.API_KEY_SECRET_ARN}:region=${TEST_ENV.region}`
+              ],
+              BOTRUNNER_SSM_CONTEXT[
+                `ssm:account=${TEST_ENV.account}:parameterName=${SSM_PARAMS.WEBHOOK_SECRET_ARN}:region=${TEST_ENV.region}`
+              ],
+            ],
+          }),
+        ]),
+      },
+    });
+  });
+
+  it('should configure Lambda with webhook secret ARN', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          WEBHOOK_SECRET_ARN: Match.anyValue(),
+        }),
+      },
+    });
+  });
+
+  it('should throttle the API Gateway stage', () => {
+    template.hasResourceProperties('AWS::ApiGateway::Stage', {
+      MethodSettings: Match.arrayWith([
+        Match.objectLike({
+          HttpMethod: '*',
+          ResourcePath: '/*',
+          ThrottlingRateLimit: 10,
+          ThrottlingBurstLimit: 20,
+        }),
+      ]),
+    });
+  });
+
   it('should configure Lambda with ECS service endpoint', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
       Environment: {
