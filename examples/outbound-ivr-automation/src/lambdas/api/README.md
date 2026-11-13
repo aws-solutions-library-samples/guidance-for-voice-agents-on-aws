@@ -79,6 +79,19 @@ IAM: `dynamodb:GetItem` and `dynamodb:UpdateItem` on `outbound-ivr-cases`;
 `bedrock-agentcore:InvokeAgentRuntime` scoped to the Runtime's ARN and its
 `runtime-endpoint/*` ARNs (not wildcarded across all runtimes).
 
+Once the call is started, the Runtime owns the case's status (`src/agentcore/livekit_app.py`):
+
+- Once the office has been dialed, it sets `status = "calling"`, only if the case is
+  still `"queued"` with `current_call` = this call.
+- When the call ends, however it ends (normally, on the call ceiling, abnormally, or
+  cancelled), it sets `"complete"`, `"escalated"`, or `"pending"` (no outcome, so it
+  can be retried) and removes `current_call`. If that write fails, it retries once
+  without the outcome map, so the case does not stay `"calling"`. It skips the write
+  if a newer call has claimed the case since (after a reset and a fresh dial).
+
+A Runtime container that dies mid-call writes nothing, so the case stays `"queued"` or
+`"calling"`; reset it (below) to dial again.
+
 ### Editing/resetting a case
 
 `handle_patch_case` lets the dashboard fix a case's info by hand, and get a case
@@ -108,10 +121,10 @@ has run out of attempts or is inside its cooldown.
 
 `updated_at` is always set to now, on either kind of edit.
 
-**Guard:** if the case's current status is `"calling"`, plain `fields` edits are
-refused with `409`: editing a case out from under a call in flight would be worse
-than leaving it stuck. Pass `reset: true` (with or without `fields`) to get out of
-`"calling"` as well.
+**Guard:** if the case's current status is `"calling"` (a call is in flight; see
+"Starting a call" above), plain `fields` edits are refused with `409`: editing a case
+out from under a call in flight would be worse than leaving it stuck. Pass
+`reset: true` (with or without `fields`) to get out of `"calling"` as well.
 
 404s if the case doesn't exist: checked both before the write (a `GetItem`) and on
 the write itself (`ConditionExpression attribute_exists(case_id)`, in case the case

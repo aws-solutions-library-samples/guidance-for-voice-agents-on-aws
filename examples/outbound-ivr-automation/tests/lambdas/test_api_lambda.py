@@ -980,6 +980,25 @@ def test_a_failed_runtime_invoke_releases_the_case(aws, monkeypatch):
     assert "last_call_started_at" not in case, "no call happened, so no cooldown"
 
 
+def test_release_leaves_a_case_the_runtime_already_marked_calling(aws):
+    """An invoke that errored on the way back (a read timeout) can still have started
+    the call. Once the Runtime has dialed and marked the case "calling", the release
+    must not hand that live call's case back as "pending"."""
+    table = aws["dynamodb"].Table(CASES_TABLE)
+    table.update_item(
+        Key={"case_id": "case-1"},
+        UpdateExpression="SET #status = :calling, current_call = :call",
+        ExpressionAttributeNames={"#status": "status"},
+        ExpressionAttributeValues={":calling": "calling", ":call": "call-live"},
+    )
+
+    handler._release_case_claim(table, "case-1", "call-live")
+
+    case = aws["store"].get_case("case-1")
+    assert case["status"] == "calling"
+    assert case["current_call"] == "call-live"
+
+
 def test_a_released_case_can_be_dialed_again(aws, agentcore, monkeypatch):
     monkeypatch.setenv("OUTBOUND_IVR_RUNTIME_ARN", RUNTIME_ARN)
     monkeypatch.setattr(handler, "_agentcore_client", lambda: _RaisingAgentCoreClient())

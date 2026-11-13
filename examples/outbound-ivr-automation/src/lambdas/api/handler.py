@@ -272,12 +272,13 @@ def handle_get_case(event: dict) -> dict:
 # the attempt cap and the dial cooldown `_mark_case_queued` enforces, so reset is the
 # documented way back from both.
 #
-# Refuses (409) to apply `fields` to a case whose current status is "calling",
-# unless `reset` is also true -- editing a case mid-call out from under the agent
-# would be worse than leaving it stuck. 404s if the case doesn't exist, both before
-# the write (so a 404 doesn't silently also 409) and via a ConditionExpression on
-# the write itself (attribute_exists(case_id)), in case the case was deleted between
-# the read and the write.
+# Refuses (409) to apply `fields` to a case whose current status is "calling" (the
+# Runtime sets it once the office has been dialed, and moves the case out of it when
+# the call ends), unless `reset` is also true -- editing a case mid-call out from
+# under the agent would be worse than leaving it stuck. 404s if the case doesn't
+# exist, both before the write (so a 404 doesn't silently also 409) and via a
+# ConditionExpression on the write itself (attribute_exists(case_id)), in case the
+# case was deleted between the read and the write.
 # --------------------------------------------------------------------------
 
 EDITABLE_STATUS_VALUES = {"pending", "queued", "calling", "complete", "escalated"}
@@ -674,7 +675,10 @@ def _release_case_claim(table, case_id: str, call_id: str | None = None) -> None
 
     Conditioned so it can only ever undo its own write: the status must still be
     `queued`, and on the AgentCore path `current_call` must still be the call id
-    this request minted. A real call that started in the meantime is left alone.
+    this request minted. A real call that started in the meantime is left alone:
+    the Runtime moves the case to `calling` once it has dialed the office
+    (agentcore/livekit_app.py's `_mark_case_calling`), and closes it out itself when
+    that call ends.
     `last_call_started_at` goes too, since no call happened, so the cooldown
     should not count against the next attempt. Best effort by design: it must
     never replace the failure the caller is about to be told about.

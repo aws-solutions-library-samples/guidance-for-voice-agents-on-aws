@@ -116,13 +116,17 @@ async def _run_call(call_id: str, case_id: str) -> None:
         await livekit_calls.dial_office(
             lkapi, call_id, sip_identity, extension=office_number, trunk_name=trunk_name
         )
+        await asyncio.to_thread(_mark_case_calling, call_id, case_id)
         await asyncio.wait_for(call_task, timeout=livekit_calls.CALL_TIMEOUT_S)
     except Exception:
         logger.exception("livekit_call_ended_abnormally", call_id=call_id)
-        if call_task is not None and not call_task.done():
-            call_task.cancel()
     finally:
         if call_task is not None:
+            # On an error, the call ceiling, or this task itself being cancelled
+            # (which `except Exception` doesn't catch), the agent must stop too, or
+            # the await below waits on a call nobody is running any more.
+            if not call_task.done():
+                call_task.cancel()
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await call_task
         with contextlib.suppress(Exception):
@@ -134,55 +138,136 @@ async def _run_call(call_id: str, case_id: str) -> None:
 # The call's final "handoff" event outcome -> the case status the dashboard shows.
 _CASE_STATUS = {"complete": "complete", "escalated": "escalated", "handed_off": "escalated"}
 
+# The case lifecycle around one call: the dashboard's Start call claims the case as
+# "queued" with `current_call = <call id>` (lambdas/api/handler.py, `_mark_case_queued`);
+# `_mark_case_calling` flips it to "calling" once the office has been dialed; and
+# `_record_case_outcome` always moves it out of "calling" when the call ends, however
+# it ends. Both Runtime writes are conditioned on this call still owning the case, so a
+# call that outlives a reset and a fresh dial never overwrites the newer call's claim.
+
+
+def _is_conditional_check_failure(exc: Exception) -> bool:
+    response = getattr(exc, "response", None) or {}
+    return (response.get("Error") or {}).get("Code") == "ConditionalCheckFailedException"
+
+
+def _mark_case_calling(call_id: str, case_id: str) -> None:
+    """Flip the case from "queued" to "calling" once the office has been dialed, so the
+    dashboard's edit lock and Start call guard see a call in flight. Only if this call
+    still holds the claim; otherwise (an operator reset the case in the meantime) the
+    case is left as it is. Never raises: a failure here leaves the case "queued", which
+    the outcome write at call end closes out the same way."""
+    cases_table = os.environ.get("OUTBOUND_IVR_CASES_TABLE")
+    if not cases_table:
+        return
+    try:
+        import boto3
+
+        boto3.resource("dynamodb", region_name=os.environ["AWS_REGION"]).Table(
+            cases_table
+        ).update_item(
+            Key={"case_id": case_id},
+            UpdateExpression="SET #status = :calling, updated_at = :now",
+            ConditionExpression="#status = :queued AND current_call = :call",
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":calling": "calling",
+                ":queued": "queued",
+                ":call": call_id,
+                ":now": datetime.now(UTC).isoformat(),
+            },
+        )
+    except Exception as exc:
+        if _is_conditional_check_failure(exc):
+            logger.warning("case_calling_skipped_claim_moved", call_id=call_id, case_id=case_id)
+        else:
+            logger.exception("case_calling_mark_failed", call_id=call_id, case_id=case_id)
+
+
+def _last_handoff(dynamodb: Any, events_table: str, call_id: str) -> dict | None:
+    from boto3.dynamodb.conditions import Key
+
+    handoffs = [
+        item
+        for item in dynamodb.Table(events_table)
+        .query(KeyConditionExpression=Key("call").eq(call_id))
+        .get("Items", [])
+        if item.get("type") == "handoff"
+    ]
+    return handoffs[-1] if handoffs else None
+
 
 def _record_case_outcome(call_id: str, case_id: str) -> None:
-    """Close out the case item the dashboard's Start call marked "queued": its tools
-    run in-process here, so nothing else updates the cases table. Reads the call's
-    last handoff event from the events table; a call that ended without one goes
-    back to "pending" so it can be retried. Never raises: the call is already over."""
+    """Close out the case item the dashboard's Start call claimed: its tools run
+    in-process here, so nothing else updates the cases table. Reads the call's last
+    handoff event from the events table; a call that ended without one, or whose
+    events can't be read, goes back to "pending" so it can be retried.
+
+    This runs after every call however it ended (normally, on the call ceiling,
+    abnormally, cancelled), and it is the only thing that moves a case out of
+    "calling", so it tries twice: if the full write fails, a minimal one without the
+    outcome still hands the case back. Conditioned on this call still owning the case
+    (`current_call` is this call, or gone after an operator reset), so a newer call's
+    claim is left alone. Never raises: the call is already over."""
     cases_table = os.environ.get("OUTBOUND_IVR_CASES_TABLE")
     events_table = os.environ.get("OUTBOUND_IVR_EVENTS_TABLE")
     if not cases_table or not events_table:
         return
     try:
         import boto3
-        from boto3.dynamodb.conditions import Key
 
-        region = os.environ["AWS_REGION"]
-        events = boto3.resource("dynamodb", region_name=region).Table(events_table)
-        handoffs = [
-            item
-            for item in events.query(KeyConditionExpression=Key("call").eq(call_id)).get(
-                "Items", []
-            )
-            if item.get("type") == "handoff"
-        ]
-        last = handoffs[-1] if handoffs else None
-        status = _CASE_STATUS.get(last.get("outcome")) if last else None
-        outcome = (
-            {k: v for k, v in last.items() if k in ("reason", "summary", "follow_up")}
-            | {"type": last["outcome"]}
-            if status
-            else None
-        )
-        expression = "SET #status = :status, updated_at = :now, last_call = :call ADD attempts :one REMOVE current_call"
-        values = {
-            ":status": status or "pending",
-            ":now": datetime.now(UTC).isoformat(),
-            ":call": call_id,
-            ":one": 1,
-        }
-        if outcome:
-            expression = expression.replace(" ADD", ", outcome = :outcome ADD")
-            values[":outcome"] = outcome
-        boto3.resource("dynamodb", region_name=region).Table(cases_table).update_item(
-            Key={"case_id": case_id},
-            UpdateExpression=expression,
-            ExpressionAttributeNames={"#status": "status"},
-            ExpressionAttributeValues=values,
-        )
+        dynamodb = boto3.resource("dynamodb", region_name=os.environ["AWS_REGION"])
+        cases = dynamodb.Table(cases_table)
     except Exception:
         logger.exception("case_outcome_record_failed", call_id=call_id)
+        return
+    try:
+        last = _last_handoff(dynamodb, events_table, call_id)
+    except Exception:
+        logger.exception("case_outcome_events_read_failed", call_id=call_id)
+        last = None
+    status = _CASE_STATUS.get(last.get("outcome")) if last else None
+    outcome = (
+        {k: v for k, v in last.items() if k in ("reason", "summary", "follow_up")}
+        | {"type": last["outcome"]}
+        if last and status
+        else None
+    )
+    values = {
+        ":status": status or "pending",
+        ":now": datetime.now(UTC).isoformat(),
+        ":call": call_id,
+        ":one": 1,
+    }
+    expression = (
+        "SET #status = :status, updated_at = :now, last_call = :call"
+        " ADD attempts :one REMOVE current_call"
+    )
+    minimal = (expression, values)
+    full = (
+        (expression.replace(" ADD", ", outcome = :outcome ADD"), values | {":outcome": outcome})
+        if outcome
+        else minimal
+    )
+    # The second try drops the outcome map (the case detail falls back to the S3 case
+    # record for it): what matters most is that the case leaves "calling".
+    for update, update_values in (full, minimal):
+        try:
+            cases.update_item(
+                Key={"case_id": case_id},
+                UpdateExpression=update,
+                ConditionExpression="attribute_not_exists(current_call) OR current_call = :call",
+                ExpressionAttributeNames={"#status": "status"},
+                ExpressionAttributeValues=update_values,
+            )
+            return
+        except Exception as exc:
+            if _is_conditional_check_failure(exc):
+                # A newer call holds the case; it closes the case out itself.
+                logger.warning("case_outcome_skipped_claim_moved", call_id=call_id, case_id=case_id)
+                return
+            logger.exception("case_outcome_record_failed", call_id=call_id)
+    logger.error("case_outcome_record_failed_manual_reset_needed", call_id=call_id, case_id=case_id)
 
 
 # AgentCore Evaluations reads a call through one "invoke agent" span: the task as the
