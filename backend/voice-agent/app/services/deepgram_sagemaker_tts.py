@@ -42,7 +42,7 @@ transport, its audio -- surfaces at the start of the next turn.
 
 Reference:
 - Deepgram TTS WebSocket docs: https://developers.deepgram.com/docs/tts-websocket
-- Pipecat DeepgramSageMakerSTTService: pipecat.services.deepgram.stt_sagemaker
+- Pipecat DeepgramSageMakerSTTService: pipecat.services.deepgram.sagemaker.stt
 """
 
 import asyncio

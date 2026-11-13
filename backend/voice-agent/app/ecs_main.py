@@ -24,7 +24,6 @@ import asyncio
 import logging
 import os
 import sys
-import warnings
 
 import structlog
 from pipecat.pipeline.runner import PipelineRunner
@@ -68,18 +67,6 @@ logging.getLogger("a2a").setLevel(logging.WARNING)
 from loguru import logger as _loguru_logger
 
 _loguru_logger.disable("pipecat")
-
-# Suppress pipecat-internal deprecation warnings that we cannot fix at source
-# (see service_main.py for detailed rationale).
-warnings.filterwarnings(
-    "ignore",
-    message=r"OpenAILLMContext is deprecated",
-    category=DeprecationWarning,
-    module=r"pipecat\.processors\.aggregators\.openai_llm_context",
-)
-import pipecat.services as _pipecat_services
-
-_pipecat_services._warned_modules.add(("deepgram", "deepgram.[stt,tts]"))
 
 logger = structlog.get_logger(__name__)
 

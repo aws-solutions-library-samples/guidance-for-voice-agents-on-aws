@@ -19,7 +19,6 @@ import signal
 import sys
 import time
 import uuid
-import warnings
 from typing import Any, Optional
 
 import structlog
@@ -48,25 +47,6 @@ logging.getLogger("a2a").setLevel(logging.WARNING)
 from loguru import logger as _loguru_logger
 
 _loguru_logger.disable("pipecat")
-
-# Suppress pipecat-internal deprecation warnings that we cannot fix at source:
-# 1. OpenAILLMContext — Bedrock adapter internally creates AWSBedrockLLMContext
-#    which inherits from deprecated OpenAILLMContext (pipecat/services/aws/llm.py)
-# 2. DeprecatedModuleProxy — fires even when importing from the correct
-#    sub-module path (pipecat.services.deepgram.stt_sagemaker)
-# These are pipecat bugs; our code already uses the recommended APIs.
-warnings.filterwarnings(
-    "ignore",
-    message=r"OpenAILLMContext is deprecated",
-    category=DeprecationWarning,
-    module=r"pipecat\.processors\.aggregators\.openai_llm_context",
-)
-# The deepgram DeprecatedModuleProxy uses `simplefilter("always")` inside a
-# `catch_warnings` context, defeating any filterwarnings() call. Pre-seed
-# its _warned_modules set so the warning is never emitted.
-import pipecat.services as _pipecat_services
-
-_pipecat_services._warned_modules.add(("deepgram", "deepgram.[stt,tts]"))
 
 # Configure structured logging with context support
 structlog.configure(

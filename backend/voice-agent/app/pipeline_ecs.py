@@ -497,10 +497,11 @@ async def create_voice_pipeline(
             observers.append(ConversationObserver(collector, enabled=True))
             logger.info("conversation_observer_added")
 
+    # Barge-in needs no flag: pipecat 1.x always allows interruptions (the
+    # PipelineParams.allow_interruptions parameter was removed in 1.0).
     task = PipelineTask(
         pipeline,
         params=PipelineParams(
-            allow_interruptions=True,  # Allow barge-in
             enable_metrics=True,
             enable_usage_metrics=True,
         ),

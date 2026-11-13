@@ -33,7 +33,6 @@ import logging
 import os
 import sys
 import uuid
-import warnings
 
 import structlog
 import uvicorn
@@ -69,17 +68,6 @@ from loguru import logger as _loguru_logger
 
 _loguru_logger.disable("pipecat")
 
-# Suppress pipecat-internal deprecation warnings
-warnings.filterwarnings(
-    "ignore",
-    message=r"OpenAILLMContext is deprecated",
-    category=DeprecationWarning,
-    module=r"pipecat\.processors\.aggregators\.openai_llm_context",
-)
-import pipecat.services as _pipecat_services
-
-_pipecat_services._warned_modules.add(("deepgram", "deepgram.[stt,tts]"))
-
 # Configure structured logging
 structlog.configure(
     processors=[
@@ -103,11 +91,13 @@ small_webrtc_handler = SmallWebRTCRequestHandler(
     connection_mode=ConnectionMode.SINGLE,
 )
 
-# Mount the prebuilt browser UI at /client
+# Mount the prebuilt browser UI at /client. pipecat-ai 1.x's [runner] extra
+# ships pipecat-ai-prebuilt (PipecatPrebuiltUI), which replaced
+# pipecat-ai-small-webrtc-prebuilt (SmallWebRTCPrebuiltUI).
 try:
-    from pipecat_ai_small_webrtc_prebuilt.frontend import SmallWebRTCPrebuiltUI
+    from pipecat_ai_prebuilt.frontend import PipecatPrebuiltUI
 
-    app.mount("/client", SmallWebRTCPrebuiltUI, name="client")
+    app.mount("/client", PipecatPrebuiltUI, name="client")
     logger.info("prebuilt_ui_mounted", path="/client")
 except ImportError:
     logger.warning(
@@ -122,7 +112,7 @@ async def root():
     return RedirectResponse(url="/client/index.html")
 
 
-# The prebuilt UI (pipecat-ai-small-webrtc-prebuilt 2.5.0) speaks the two-phase
+# The prebuilt UI (pipecat-ai-prebuilt) speaks the two-phase
 # Pipecat Cloud protocol: POST /start to open a session, then
 # POST /sessions/{id}/api/offer for the SDP exchange. This module only
 # implemented the older single-phase POST /api/offer, so Connect failed with 404

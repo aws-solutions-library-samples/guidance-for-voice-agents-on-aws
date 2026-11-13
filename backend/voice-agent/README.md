@@ -317,12 +317,28 @@ isort app/ tests/
 mypy app/
 ```
 
+### Pipeline parity harness
+
+`scripts/pipeline_parity.py` runs a scripted call (greeting, question, tool call, barge-in, hang-up) through the real ECS pipeline from `app/pipeline_ecs.py`. It uses live Bedrock with a fake Daily transport, scripted STT and a fake SageMaker TTS endpoint, and records the frames reaching the transport, interruption behaviour, LLM context, every CloudWatch EMF record and teardown. Use it to compare two pipecat versions before an upgrade. It needs AWS credentials with Bedrock access; `--speech-dir` additionally uses Amazon Polly.
+
+```bash
+# Optional: synthesize the caller's lines so pipecat's own VAD and Smart Turn decide turns
+python scripts/pipeline_parity.py synth --speech-dir /tmp/parity-speech
+
+# Capture once per environment (e.g. old and new pipecat venvs), then compare
+python scripts/pipeline_parity.py capture --speech-dir /tmp/parity-speech --out /tmp/parity-old.json
+python scripts/pipeline_parity.py capture --speech-dir /tmp/parity-speech --out /tmp/parity-new.json
+python scripts/pipeline_parity.py diff /tmp/parity-old.json /tmp/parity-new.json
+```
+
+`diff` exits non-zero if an EMF metric name, unit, namespace or dimension set changes, or if a behaviour check fails. `tests/integration/test_pipeline_parity.py` runs the same call in the test suite and checks the EMF schema against `tests/integration/parity_emf_schema.json`. It is marked `integration` and skipped without AWS credentials.
+
 ### Project Structure
 
 ```
 backend/voice-agent/
-├── Dockerfile              # Python 3.12 container image
-├── requirements.txt        # Production dependencies (pipecat-ai[sagemaker]==0.0.102)
+├── Dockerfile              # Python 3.13 container image (Amazon Linux 2023)
+├── requirements.txt        # Production dependencies (pipecat-ai==1.6.0)
 ├── requirements-dev.txt    # Development dependencies
 ├── entrypoint.sh           # Container entrypoint
 ├── app/
