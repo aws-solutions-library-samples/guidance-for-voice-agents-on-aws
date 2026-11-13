@@ -10,7 +10,7 @@
 # - sagemaker: HTTP/2 BiDi streaming for SageMaker endpoints (requires Python >= 3.12)
 # - webrtc: SmallWebRTCTransport for local browser-based prototyping (aiortc)
 # - runner: FastAPI dev server + prebuilt WebRTC browser UI
-pipecat-ai[daily,silero,deepgram,cartesia,aws,sagemaker,webrtc,runner]==0.0.108
+pipecat-ai[daily,silero,deepgram,cartesia,aws,sagemaker,webrtc,runner]==1.6.0
 
 # Pipecat's SageMakerBidiClient (through pipecat-ai 1.6.0) is written against
 # the 0.9.x client API. aws_sdk_sagemaker_runtime_http2 0.10.0 removed
