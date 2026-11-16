@@ -4,8 +4,12 @@ Unit tests for Bot Runner Lambda handler.
 Run with: pytest test_handler.py -v
 """
 
+import base64
+import hashlib
+import hmac
 import json
 import os
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -13,26 +17,76 @@ from unittest.mock import MagicMock, patch
 os.environ["DAILY_API_KEY_SECRET_ARN"] = (
     "arn:aws:secretsmanager:us-east-1:123456789012:secret:test-secret"
 )
+os.environ["WEBHOOK_SECRET_ARN"] = (
+    "arn:aws:secretsmanager:us-east-1:123456789012:secret:test-webhook-secret"
+)
 
 import handler
 
+TEST_HMAC_SECRET = base64.b64encode(b"test-daily-hmac-secret-bytes").decode()
+TEST_SIP_SECRET = "test-sip-shared-secret"
+TEST_WEBHOOK_SECRETS = {
+    "DAILY_HMAC_SECRET": TEST_HMAC_SECRET,
+    "SIP_WEBHOOK_SECRET": TEST_SIP_SECRET,
+}
 
-class TestStartSession(unittest.TestCase):
-    """Tests for start_session handler."""
+
+def sign_daily(raw_body: str, timestamp: str, secret: str = TEST_HMAC_SECRET) -> str:
+    """Compute Daily's X-Pinless-Signature for a raw body."""
+    digest = hmac.new(
+        base64.b64decode(secret),
+        f"{timestamp}.{raw_body}".encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    return base64.b64encode(digest).decode()
+
+
+class WebhookSecretsTestCase(unittest.TestCase):
+    """Base class that stubs the webhook secret instead of calling AWS."""
 
     def setUp(self):
         """Set up test fixtures."""
         self.mock_context = MagicMock()
         self.mock_context.aws_request_id = "test-request-id"
+        patcher = patch(
+            "webhook_auth._load_webhook_secrets",
+            return_value=dict(TEST_WEBHOOK_SECRETS),
+        )
+        self.mock_load_secrets = patcher.start()
+        self.addCleanup(patcher.stop)
 
-    def _make_event(self, body: dict) -> dict:
-        """Create API Gateway event with body."""
+    def _make_event(
+        self, body: dict, timestamp: str | None = None, signature: str | None = None
+    ) -> dict:
+        """Create a Daily-signed API Gateway event with body."""
+        raw_body = json.dumps(body)
+        timestamp = timestamp or str(int(time.time()))
         return {
-            "body": json.dumps(body),
-            "headers": {"Content-Type": "application/json"},
+            "body": raw_body,
+            "headers": {
+                "Content-Type": "application/json",
+                "X-Pinless-Timestamp": timestamp,
+                "X-Pinless-Signature": signature or sign_daily(raw_body, timestamp),
+            },
             "httpMethod": "POST",
             "path": "/start",
         }
+
+    def _make_sip_event(self, body: dict, secret: str | None = TEST_SIP_SECRET) -> dict:
+        """Create a SIP API Gateway event, optionally carrying the shared secret."""
+        headers = {"Content-Type": "application/json"}
+        if secret is not None:
+            headers["X-Sip-Webhook-Secret"] = secret
+        return {
+            "body": json.dumps(body),
+            "headers": headers,
+            "httpMethod": "POST",
+            "path": "/start",
+        }
+
+
+class TestStartSession(WebhookSecretsTestCase):
+    """Tests for start_session handler."""
 
     def test_missing_call_id_returns_400(self):
         """Should return 400 when callId is missing."""
@@ -164,12 +218,20 @@ class TestStartSession(unittest.TestCase):
         self.assertEqual(response["statusCode"], 500)
 
     def test_empty_body_returns_400(self):
-        """Should return 400 when body is empty."""
-        event = {"body": "{}"}
+        """Should return 400 when a signed body is empty."""
+        event = self._make_event({})
 
         response = handler.start_session(event, self.mock_context)
 
         self.assertEqual(response["statusCode"], 400)
+
+    def test_unsigned_empty_body_returns_401(self):
+        """An empty body without a signature must not fall through to SIP."""
+        event = {"body": "{}"}
+
+        response = handler.start_session(event, self.mock_context)
+
+        self.assertEqual(response["statusCode"], 401)
 
     @patch("handler.EcsServiceClient")
     @patch("handler.DailyClient")
@@ -201,6 +263,234 @@ class TestStartSession(unittest.TestCase):
         body = json.loads(response["body"])
 
         self.assertTrue(body["sessionId"].startswith("voice-my-call-id-"))
+
+
+class TestWebhookAuthentication(WebhookSecretsTestCase):
+    """Requests must be authenticated before any room or session is created."""
+
+    PSTN_BODY = {
+        "callId": "test-call-123",
+        "callDomain": "test.daily.co",
+        "From": "+15551234567",
+        "To": "+15559876543",
+    }
+    SIP_BODY = {
+        "source": "sip",
+        "caller_id": "web-client-001",
+        "caller_number": "sip:100@asterisk.local",
+    }
+
+    def _mock_clients(self, mock_daily_cls, mock_service_cls):
+        mock_daily = MagicMock()
+        mock_daily.create_room.return_value = {
+            "url": "https://test.daily.co/voice-test-123",
+            "name": "voice-test-123",
+        }
+        mock_daily.create_meeting_token.return_value = "test-token-xyz"
+        mock_daily.get_sip_uri.return_value = "sip:room@sip.daily.co"
+        mock_daily_cls.return_value = mock_daily
+        mock_service_cls.return_value.start_call.return_value = {"status": "started"}
+
+    def _assert_rejected(self, response, mock_daily_cls, mock_service_cls, status=401):
+        self.assertEqual(response["statusCode"], status)
+        self.assertEqual(json.loads(response["body"])["status"], "error")
+        mock_daily_cls.assert_not_called()
+        mock_service_cls.assert_not_called()
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_valid_daily_signature_starts_session(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        self._mock_clients(mock_daily_cls, mock_service_cls)
+
+        response = handler.start_session(
+            self._make_event(self.PSTN_BODY), self.mock_context
+        )
+
+        self.assertEqual(response["statusCode"], 200)
+        mock_service_cls.return_value.start_call.assert_called_once()
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_lowercase_signature_headers_accepted(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        self._mock_clients(mock_daily_cls, mock_service_cls)
+        event = self._make_event(self.PSTN_BODY)
+        event["headers"] = {k.lower(): v for k, v in event["headers"].items()}
+
+        response = handler.start_session(event, self.mock_context)
+
+        self.assertEqual(response["statusCode"], 200)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_missing_signature_returns_401(self, mock_daily_cls, mock_service_cls):
+        event = self._make_event(self.PSTN_BODY)
+        del event["headers"]["X-Pinless-Signature"]
+
+        response = handler.start_session(event, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_missing_timestamp_returns_401(self, mock_daily_cls, mock_service_cls):
+        event = self._make_event(self.PSTN_BODY)
+        del event["headers"]["X-Pinless-Timestamp"]
+
+        response = handler.start_session(event, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_no_headers_returns_401(self, mock_daily_cls, mock_service_cls):
+        event = {"body": json.dumps(self.PSTN_BODY), "headers": None}
+
+        response = handler.start_session(event, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_invalid_signature_returns_401(self, mock_daily_cls, mock_service_cls):
+        timestamp = str(int(time.time()))
+        wrong_secret = base64.b64encode(b"some-other-secret").decode()
+        event = self._make_event(
+            self.PSTN_BODY,
+            timestamp=timestamp,
+            signature=sign_daily(json.dumps(self.PSTN_BODY), timestamp, wrong_secret),
+        )
+
+        response = handler.start_session(event, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_tampered_body_returns_401(self, mock_daily_cls, mock_service_cls):
+        event = self._make_event(self.PSTN_BODY)
+        event["body"] = json.dumps({**self.PSTN_BODY, "callId": "attacker-call"})
+
+        response = handler.start_session(event, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_replayed_signature_returns_401(self, mock_daily_cls, mock_service_cls):
+        """A validly signed request captured earlier is rejected once stale."""
+        captured = self._make_event(
+            self.PSTN_BODY, timestamp=str(int(time.time()) - 301)
+        )
+
+        response = handler.start_session(captured, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_replay_with_refreshed_timestamp_returns_401(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        """Swapping in a fresh timestamp invalidates the captured signature."""
+        captured = self._make_event(
+            self.PSTN_BODY, timestamp=str(int(time.time()) - 3600)
+        )
+        captured["headers"]["X-Pinless-Timestamp"] = str(int(time.time()))
+
+        response = handler.start_session(captured, self.mock_context)
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_daily_test_request_acknowledged_without_session(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        response = handler.start_session(
+            self._make_event({"test": "test"}), self.mock_context
+        )
+
+        self.assertEqual(response["statusCode"], 200)
+        mock_daily_cls.assert_not_called()
+        mock_service_cls.assert_not_called()
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_unconfigured_hmac_secret_rejects_with_500(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        self.mock_load_secrets.return_value = {
+            "DAILY_HMAC_SECRET": "PLACEHOLDER_REPLACE_AFTER_DEPLOY",
+            "SIP_WEBHOOK_SECRET": TEST_SIP_SECRET,
+        }
+
+        with self.assertLogs(level="ERROR") as logs:
+            response = handler.start_session(
+                self._make_event(self.PSTN_BODY), self.mock_context
+            )
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls, status=500)
+        self.assertIn("daily_hmac_secret_not_configured", "\n".join(logs.output))
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_valid_sip_secret_starts_session(self, mock_daily_cls, mock_service_cls):
+        self._mock_clients(mock_daily_cls, mock_service_cls)
+
+        response = handler.start_session(
+            self._make_sip_event(self.SIP_BODY), self.mock_context
+        )
+
+        self.assertEqual(response["statusCode"], 200)
+        self.assertTrue(json.loads(response["body"])["sessionId"].startswith("sip-"))
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_missing_sip_secret_returns_401(self, mock_daily_cls, mock_service_cls):
+        response = handler.start_session(
+            self._make_sip_event(self.SIP_BODY, secret=None), self.mock_context
+        )
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_invalid_sip_secret_returns_401(self, mock_daily_cls, mock_service_cls):
+        response = handler.start_session(
+            self._make_sip_event(self.SIP_BODY, secret="wrong-secret"),
+            self.mock_context,
+        )
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_sip_request_with_daily_signature_only_returns_401(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        """source=sip always requires the SIP shared secret."""
+        response = handler.start_session(
+            self._make_event(self.SIP_BODY), self.mock_context
+        )
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls)
+
+    @patch("handler.EcsServiceClient")
+    @patch("handler.DailyClient")
+    def test_unconfigured_sip_secret_rejects_with_500(
+        self, mock_daily_cls, mock_service_cls
+    ):
+        self.mock_load_secrets.return_value = {"DAILY_HMAC_SECRET": TEST_HMAC_SECRET}
+
+        response = handler.start_session(
+            self._make_sip_event(self.SIP_BODY), self.mock_context
+        )
+
+        self._assert_rejected(response, mock_daily_cls, mock_service_cls, status=500)
 
 
 class TestParseBody(unittest.TestCase):

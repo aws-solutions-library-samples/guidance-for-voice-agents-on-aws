@@ -243,6 +243,7 @@ Manages secrets and encryption:
 ```mermaid
 graph LR
     KMS["KMS Key\n(auto-rotate)"] -->|encrypts| SM["Secrets Manager\n\nDAILY_API_KEY\nDEEPGRAM_API_KEY\nCARTESIA_API_KEY"]
+    KMS -->|encrypts| WS["Webhook Secret\n\nDAILY_HMAC_SECRET\nSIP_WEBHOOK_SECRET"]
 ```
 
 **Resources Created**:
@@ -251,6 +252,7 @@ graph LR
 |----------|-------------|
 | KMS Key | CMK with automatic rotation enabled |
 | Secrets Manager Secret | JSON blob with 3 API keys |
+| Webhook Secret | `DAILY_HMAC_SECRET` (set after deploy) and `SIP_WEBHOOK_SECRET` (generated); read only by the BotRunner Lambda |
 
 **Secret Structure**:
 ```json
@@ -264,6 +266,7 @@ graph LR
 **SSM Parameters Exported**:
 ```
 /voice-agent/storage/api-key-secret-arn
+/voice-agent/storage/webhook-secret-arn
 /voice-agent/storage/encryption-key-arn
 ```
 
@@ -409,7 +412,15 @@ graph LR
 | Resource | Configuration |
 |----------|--------------|
 | Lambda Function | Python 3.11, 256 MB, 30s timeout |
-| API Gateway | REST API, stage: `poc` |
+| API Gateway | REST API, stage: `poc`, stage throttling 10 req/s (burst 20) |
+
+**Request Authentication** (`webhook_auth.py`), checked before any room or session is created:
+
+| Request | Requirement | Failure |
+|---------|-------------|---------|
+| PSTN (from Daily) | Valid `X-Pinless-Signature` HMAC over `X-Pinless-Timestamp` + body, timestamp within 5 minutes | `401` |
+| SIP (`"source": "sip"`) | `X-Sip-Webhook-Secret` header matches `SIP_WEBHOOK_SECRET` | `401` |
+| Either | Required secret missing or still a placeholder | `500` + error log |
 
 **Lambda Handler Flow** (`handler.py`):
 
@@ -418,19 +429,22 @@ def start_session(event, context):
     # 1. Parse webhook body
     body = parse_body(event)  # callId, callDomain, from, to
 
-    # 2. Create Daily room (SIP enabled)
+    # 2. Authenticate (Daily HMAC for PSTN, shared secret for SIP)
+    authenticate_request(event, body)
+
+    # 3. Create Daily room (SIP enabled)
     room = daily_client.create_room(
         name=f"voice-{call_id}",
         properties={"sip": {"sip_mode": "dial-in"}}
     )
 
-    # 3. Generate bot meeting token
+    # 4. Generate bot meeting token
     token = daily_client.create_meeting_token(room_name)
 
-    # 4. Get SIP URI for routing
+    # 5. Get SIP URI for routing
     sip_uri = daily_client.get_sip_uri(room_name)
 
-    # 5. Call ECS service
+    # 6. Call ECS service
     service_client.start_call(
         room_url=room["url"],
         room_token=token,
@@ -438,7 +452,7 @@ def start_session(event, context):
         dialin_settings={"call_id", "call_domain", "sip_uri"}
     )
 
-    # 6. Return SIP URI to Daily (bridges PSTN to room)
+    # 7. Return SIP URI to Daily (bridges PSTN to room)
     return {"sipUri": sip_uri}
 ```
 
@@ -448,6 +462,7 @@ def start_session(event, context):
 |----------|---------|
 | `ECS_SERVICE_ENDPOINT` | NLB DNS name for ECS service |
 | `DAILY_API_KEY_SECRET_ARN` | Secrets Manager ARN |
+| `WEBHOOK_SECRET_ARN` | Webhook authentication secret ARN |
 | `LOG_LEVEL` | Logging verbosity |
 
 **SSM Parameters Exported**:
@@ -623,10 +638,12 @@ Content-Type: application/json
 }
 ```
 
+Daily signs the request with the `X-Pinless-Timestamp` and `X-Pinless-Signature` headers.
+
 **Step 3: API Gateway Invokes Lambda**
-- API Gateway receives POST request
-- Validates request format
+- API Gateway receives POST request (stage throttling applies)
 - Invokes Lambda function synchronously
+- Lambda verifies the Daily signature before doing any work
 
 #### Phase 2: Room Setup (Steps 4-6)
 
@@ -1154,6 +1171,7 @@ The NLB health check targets `/ready`, so at-capacity containers stop receiving 
 |----------|----------|-------------|
 | `ECS_SERVICE_ENDPOINT` | Yes | NLB DNS name |
 | `DAILY_API_KEY_SECRET_ARN` | Yes | Secrets Manager ARN |
+| `WEBHOOK_SECRET_ARN` | Yes | Webhook authentication secret ARN |
 | `LOG_LEVEL` | No | Logging level |
 
 ### SSM Parameters
@@ -1170,6 +1188,7 @@ All cross-stack communication uses SSM Parameters:
 │   └── vpc-endpoint-sg-id
 ├── storage/
 │   ├── api-key-secret-arn
+│   ├── webhook-secret-arn
 │   └── encryption-key-arn
 ├── ecs/
 │   ├── cluster-arn

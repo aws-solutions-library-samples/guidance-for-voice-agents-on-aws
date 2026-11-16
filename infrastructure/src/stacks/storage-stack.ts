@@ -36,5 +36,10 @@ export class StorageStack extends cdk.Stack {
       value: this.secretsConstruct.apiKeySecret.secretArn,
       description: 'API Keys Secret ARN',
     });
+
+    new cdk.CfnOutput(this, 'WebhookSecretArn', {
+      value: this.secretsConstruct.webhookSecret.secretArn,
+      description: 'Webhook Authentication Secret ARN',
+    });
   }
 }

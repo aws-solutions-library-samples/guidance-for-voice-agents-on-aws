@@ -40,6 +40,10 @@ export class BotRunnerStack extends cdk.Stack {
       this,
       SSM_PARAMS.API_KEY_SECRET_ARN
     );
+    const webhookSecretArn = ssm.StringParameter.valueFromLookup(
+      this,
+      SSM_PARAMS.WEBHOOK_SECRET_ARN
+    );
     const encryptionKeyArn = ssm.StringParameter.valueFromLookup(
       this,
       SSM_PARAMS.ENCRYPTION_KEY_ARN
@@ -70,6 +74,7 @@ export class BotRunnerStack extends cdk.Stack {
       vpc,
       lambdaSecurityGroup: lambdaSg,
       apiKeySecretArn,
+      webhookSecretArn,
       encryptionKeyArn,
       ecsClusterArn,
       ecsTaskDefinitionArn,

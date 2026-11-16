@@ -114,7 +114,7 @@ curl --request POST \
 Response includes an HMAC secret for webhook verification:
 ```json
 {
-  "properties": {
+  "config": {
     "pinless_dialin": [
       {
         "phone_number": "+14155551234",
@@ -126,7 +126,7 @@ Response includes an HMAC secret for webhook verification:
 }
 ```
 
-**Save the HMAC secret** - use it to verify webhook signatures.
+**Save the HMAC secret** as `DAILY_HMAC_SECRET` - the webhook rejects calls it cannot verify with it. See [Webhook Authentication](#webhook-authentication).
 
 ### 2.2 Verify Configuration
 
@@ -161,27 +161,82 @@ Your webhook must:
 4. Wait for `dialin-ready` event
 5. **Call `pinlessCallUpdate`** to connect the caller
 
-### Security: Verify Webhook Signature
+### Webhook Authentication
 
-Daily sends these headers:
-- `X-Pinless-Signature` - HMAC-SHA256 signature
-- `X-Pinless-Timestamp` - Request timestamp
+The `/start` endpoint authenticates every request before it creates a room or starts a voice session. This is implemented in `infrastructure/src/functions/bot-runner/webhook_auth.py`.
 
-Verify with:
+| Request | How it is authenticated |
+|---------|-------------------------|
+| PSTN, from Daily pinless dial-in | Daily HMAC signature (`X-Pinless-Timestamp` + `X-Pinless-Signature`) |
+| SIP, body has `"source": "sip"` | Shared secret in the `X-Sip-Webhook-Secret` header |
+
+Unauthenticated requests get `401`. If a required secret is not configured, the request gets `500` and the Lambda logs `Webhook rejected: daily_hmac_secret_not_configured` (or `sip_webhook_secret_not_configured`). The API Gateway stage is also throttled to 10 requests/second (burst 20).
+
+#### Daily signature scheme
+
+From [Daily's pinless dial-in docs](https://docs.daily.co/guides/products/dial-in-dial-out/dialin-pinless#verifying-the-webhook-signature-hmac):
+
 ```python
-import hmac
-import hashlib
-import base64
+import base64, hashlib, hmac
 
-def verify_signature(body: bytes, signature: str, timestamp: str, hmac_secret: str) -> bool:
-    message = f"{timestamp}.{body.decode()}"
-    expected = hmac.new(
-        base64.b64decode(hmac_secret),
-        message.encode(),
-        hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature)
+def daily_signature(hmac_secret: str, timestamp: str, raw_body: bytes) -> str:
+    key = base64.b64decode(hmac_secret)  # the secret is base64-encoded
+    digest = hmac.new(key, timestamp.encode() + b"." + raw_body, hashlib.sha256).digest()
+    return base64.b64encode(digest).decode()  # compare with X-Pinless-Signature
 ```
+
+The handler compares signatures in constant time. It also rejects requests whose `X-Pinless-Timestamp` is more than 5 minutes from the current time, so a captured request cannot be replayed later. Daily's docs do not state the timestamp units, so both epoch seconds and epoch milliseconds are accepted.
+
+Daily also sends a signed `{"test": "test"}` request whenever `pinless_dialin` is configured. The handler acknowledges it with `200` and does not start a session.
+
+#### Configuring the secrets
+
+Both values live in the **webhook secret** in Secrets Manager. Its ARN is in SSM at `/voice-agent/storage/webhook-secret-arn`. Only the BotRunner Lambda can read it, and the Lambda caches it for up to 5 minutes, so allow that long for changes to take effect.
+
+| Key | Value |
+|-----|-------|
+| `DAILY_HMAC_SECRET` | The `hmac` from your `pinless_dialin` config. Starts as a placeholder; PSTN calls are rejected until you set it. |
+| `SIP_WEBHOOK_SECRET` | Random value generated when the Storage stack is deployed. Your SIP client must send it in `X-Sip-Webhook-Secret`. |
+
+**Daily HMAC secret.** `setup-daily.sh` and `update-daily-webhook.sh` save it to `backend/voice-agent/.env` as `DAILY_HMAC_SECRET`. Sync it to AWS with:
+
+```bash
+cd infrastructure && ./scripts/init-secrets.sh
+```
+
+Daily generates a new `hmac` every time `pinless_dialin` is updated, unless you supply your own base64-encoded value in the `hmac` field. Re-run `init-secrets.sh` after every webhook reconfiguration.
+
+To set it manually instead:
+
+```bash
+WEBHOOK_SECRET_ARN=$(aws ssm get-parameter --name /voice-agent/storage/webhook-secret-arn --query 'Parameter.Value' --output text)
+NEW_VALUE=$(aws secretsmanager get-secret-value --secret-id "$WEBHOOK_SECRET_ARN" --query SecretString --output text \
+  | jq -c --arg h "$DAILY_HMAC_SECRET" '.DAILY_HMAC_SECRET = $h')
+aws secretsmanager put-secret-value --secret-id "$WEBHOOK_SECRET_ARN" --secret-string "$NEW_VALUE"
+```
+
+**SIP shared secret.** Read the generated value and configure your SIP client (for example the Asterisk dialplan that calls `/start`) to send it:
+
+```bash
+WEBHOOK_SECRET_ARN=$(aws ssm get-parameter --name /voice-agent/storage/webhook-secret-arn --query 'Parameter.Value' --output text)
+SIP_WEBHOOK_SECRET=$(aws secretsmanager get-secret-value --secret-id "$WEBHOOK_SECRET_ARN" \
+  --query SecretString --output text | jq -r .SIP_WEBHOOK_SECRET)
+
+curl -X POST "$WEBHOOK_URL" \
+  -H 'Content-Type: application/json' \
+  -H "X-Sip-Webhook-Secret: $SIP_WEBHOOK_SECRET" \
+  -d '{"source": "sip", "caller_id": "web-client-001", "caller_number": "sip:100@asterisk.local"}'
+```
+
+To use your own value, add `SIP_WEBHOOK_SECRET=...` to `backend/voice-agent/.env` and run `init-secrets.sh`.
+
+#### Verifying
+
+```bash
+cd infrastructure && ./scripts/test-webhook.sh
+```
+
+The script checks that an unsigned request is rejected with `401`. It then signs test requests with `DAILY_HMAC_SECRET`, using the env var if set or otherwise the webhook secret.
 
 ---
 

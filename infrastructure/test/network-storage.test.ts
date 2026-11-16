@@ -140,8 +140,25 @@ describe('StorageStack', () => {
     });
   });
 
-  it('should create a Secrets Manager secret', () => {
-    template.resourceCountIs('AWS::SecretsManager::Secret', 1);
+  it('should create API key and webhook Secrets Manager secrets', () => {
+    template.resourceCountIs('AWS::SecretsManager::Secret', 2);
+  });
+
+  it('should generate the SIP webhook secret and leave the Daily HMAC as a placeholder', () => {
+    template.hasResourceProperties('AWS::SecretsManager::Secret', {
+      GenerateSecretString: Match.objectLike({
+        GenerateStringKey: 'SIP_WEBHOOK_SECRET',
+        SecretStringTemplate: JSON.stringify({
+          DAILY_HMAC_SECRET: 'PLACEHOLDER_REPLACE_AFTER_DEPLOY',
+        }),
+      }),
+    });
+  });
+
+  it('should create SSM parameter for webhook secret ARN', () => {
+    template.hasResourceProperties('AWS::SSM::Parameter', {
+      Name: SSM_PARAMS.WEBHOOK_SECRET_ARN,
+    });
   });
 
   it('should create SSM parameter for secret ARN', () => {

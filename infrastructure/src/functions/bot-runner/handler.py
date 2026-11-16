@@ -5,6 +5,7 @@ Handles Daily dial-in webhooks and routes to ECS voice service.
 
 Architecture:
 - Daily webhook triggers this Lambda
+- Lambda authenticates the request (see webhook_auth.py)
 - Lambda creates Daily room and generates tokens
 - Lambda calls always-on ECS service with room config
 - ECS service runs pipecat and connects to Daily room
@@ -20,6 +21,7 @@ from typing import Any
 
 from daily_client import DailyClient
 from service_client import EcsServiceClient
+from webhook_auth import WebhookAuthError, authenticate_request
 
 # Configure logging
 logger = logging.getLogger()
@@ -31,8 +33,12 @@ def start_session(event: dict, context: Any) -> dict:
     Handle Daily dial-in webhook and spawn voice session.
 
     Supports two modes:
-    1. PSTN via Daily webhook: Has callId, callDomain, from fields
-    2. SIP via direct request: Has source='sip', caller_id fields
+    1. PSTN via Daily webhook: Has callId, callDomain, from fields.
+       Must carry a valid Daily X-Pinless-Signature HMAC.
+    2. SIP via direct request: Has source='sip', caller_id fields.
+       Must carry the shared secret in the X-Sip-Webhook-Secret header.
+
+    Requests are authenticated before any room or session is created.
 
     Expected PSTN webhook payload:
     {
@@ -59,17 +65,28 @@ def start_session(event: dict, context: Any) -> dict:
     try:
         # Parse request body
         body = _parse_body(event)
-        logger.info(f"[{request_id}] Parsed body: {body}")
 
-        # Detect request type: PSTN webhook vs SIP direct request
+        # Authenticate before doing any billable work
+        try:
+            source = authenticate_request(event, body)
+        except WebhookAuthError as e:
+            return _auth_error_response(e, request_id)
+
+        logger.info(f"[{request_id}] Authenticated {source} request: {body}")
+
         call_id = body.get("callId")
         call_domain = body.get("callDomain")
-        source = body.get("source", "pstn")
 
         # Handle SIP requests differently
-        if source == "sip" or (not call_id and not call_domain):
+        if source == "sip":
             logger.info(f"[{request_id}] Detected SIP request")
             return _handle_sip_request(body, request_id)
+
+        # Daily sends a signed {"test": "test"} body whenever pinless_dialin
+        # is configured; acknowledge it without starting a session
+        if body.get("test") == "test" and not call_id and not call_domain:
+            logger.info(f"[{request_id}] Daily webhook test request acknowledged")
+            return _success_response(200, {"status": "ok"})
 
         # PSTN flow - validate required fields
         from_number = body.get("from", "unknown")
@@ -293,6 +310,17 @@ def _parse_body(event: dict) -> dict:
             raise ValueError(f"Invalid JSON body: {e}")
 
     return body if isinstance(body, dict) else {}
+
+
+def _auth_error_response(error: WebhookAuthError, request_id: str) -> dict:
+    """Log an authentication failure and build the rejection response."""
+    if error.status_code >= 500:
+        # Misconfiguration: the request may be legitimate but cannot be verified
+        logger.error(f"[{request_id}] Webhook rejected: {error.reason}. {error.detail}")
+        return _error_response(500, "Webhook authentication unavailable")
+
+    logger.warning(f"[{request_id}] Webhook rejected: {error.reason}")
+    return _error_response(401, "Unauthorized")
 
 
 def _get_system_prompt(caller_id: str) -> str:

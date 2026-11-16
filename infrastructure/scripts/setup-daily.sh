@@ -160,7 +160,7 @@ if echo "$CONFIG" | jq -e '.error' > /dev/null 2>&1; then
     exit 1
 fi
 
-HMAC=$(echo "$CONFIG" | jq -r '.properties.pinless_dialin[0].hmac')
+HMAC=$(echo "$CONFIG" | jq -r '(.config // .properties).pinless_dialin[0].hmac')
 echo -e "Webhook configured with HMAC verification"
 echo ""
 
