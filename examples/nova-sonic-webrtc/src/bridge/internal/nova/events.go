@@ -10,17 +10,35 @@ import (
 )
 
 // SampleRate is the PCM rate in both directions: 16-bit mono LPCM at 24 kHz.
+// Nova Sonic accepts 8, 16, or 24 kHz input and sends 24 kHz output.
 const SampleRate = 24000
 
 type object = map[string]any
 
-var audioFormat = object{
-	"mediaType":       "audio/lpcm",
-	"sampleRateHertz": SampleRate,
-	"sampleSizeBits":  16,
-	"channelCount":    1,
-	"encoding":        "base64",
-	"audioType":       "SPEECH",
+// audioInputFormat describes the user's audio that the bridge sends.
+func audioInputFormat() object {
+	return object{
+		"mediaType":       "audio/lpcm",
+		"sampleRateHertz": SampleRate,
+		"sampleSizeBits":  16,
+		"channelCount":    1,
+		"encoding":        "base64",
+		"audioType":       "SPEECH",
+	}
+}
+
+// audioOutputFormat describes the assistant's audio that Nova Sonic sends. It
+// is separate from audioInputFormat so the two can differ.
+func audioOutputFormat(voiceID string) object {
+	return object{
+		"mediaType":       "audio/lpcm",
+		"sampleRateHertz": SampleRate,
+		"sampleSizeBits":  16,
+		"channelCount":    1,
+		"voiceId":         voiceID,
+		"encoding":        "base64",
+		"audioType":       "SPEECH",
+	}
 }
 
 func event(name string, body object) object {
@@ -36,14 +54,10 @@ func sessionStart() object {
 }
 
 func promptStart(prompt, voiceID string) object {
-	output := object{"voiceId": voiceID}
-	for k, v := range audioFormat {
-		output[k] = v
-	}
 	return event("promptStart", object{
 		"promptName":               prompt,
 		"textOutputConfiguration":  object{"mediaType": "text/plain"},
-		"audioOutputConfiguration": output,
+		"audioOutputConfiguration": audioOutputFormat(voiceID),
 	})
 }
 
@@ -69,7 +83,7 @@ func audioContentStart(prompt, content string) object {
 		"type":                    "AUDIO",
 		"interactive":             true,
 		"role":                    "USER",
-		"audioInputConfiguration": audioFormat,
+		"audioInputConfiguration": audioInputFormat(),
 	})
 }
 

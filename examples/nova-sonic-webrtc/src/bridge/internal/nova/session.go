@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,6 +28,14 @@ const (
 	sendQueue = 128
 )
 
+var (
+	// closeWait bounds all of Close, so a wedged stream can't hang shutdown.
+	closeWait = closeTimeout + 2*time.Second
+	// writeFailGrace is how long the writer waits, after a failed send, for the
+	// reader to report why the stream ended before ending the session itself.
+	writeFailGrace = time.Second
+)
+
 // Handler receives what the model says. Every callback except OnEnd runs on the
 // session's single reader goroutine, in order. Nil callbacks are skipped.
 type Handler struct {
@@ -35,8 +44,9 @@ type Handler struct {
 	OnInterrupt  func()
 	OnError      func(message string)
 	// OnEnd is called at most once when the session ends for any reason other
-	// than Close: the model ended the stream, the stream failed, or the session
-	// limit passed.
+	// than Close: the model ended the stream (model_ended), Nova Sonic heard no
+	// speech for about 295 s (idle_timeout), the stream failed (stream_error or
+	// write_error), or the session limit passed (session_limit).
 	OnEnd func(reason string)
 }
 
@@ -191,8 +201,9 @@ func (s *Session) SendAudio(pcm []byte) {
 }
 
 // Close closes the audio input, prompt, and session in the order Nova Sonic
-// requires, then the stream, and waits for the session's goroutines. OnEnd is
-// not called for a session ended by Close. It is safe to call more than once.
+// requires, then the stream, and waits for the session's goroutines, for at
+// most closeWait. OnEnd is not called for a session ended by Close. It is safe
+// to call more than once.
 func (s *Session) Close() {
 	if !s.closing.CompareAndSwap(false, true) {
 		return
@@ -200,6 +211,20 @@ func (s *Session) Close() {
 	if s.limit != nil {
 		s.limit.Stop()
 	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.shutdown()
+	}()
+	select {
+	case <-done:
+	case <-time.After(closeWait):
+		s.cancel()
+		s.log.Warn("nova sonic stream did not close in time; abandoning it", "waited", closeWait)
+	}
+}
+
+func (s *Session) shutdown() {
 	close(s.stopWrite)
 	<-s.writerDone
 
@@ -235,14 +260,29 @@ func (s *Session) writeLoop() {
 			return
 		case pcm := <-s.out:
 			if err := s.send(s.ctx, audioInput(s.prompt, s.audioContent, pcm)); err != nil {
-				if !s.closing.Load() && !s.streamDone.Load() {
-					s.log.Warn("nova sonic send failed", "err", describe(err))
-				}
-				// The reader sees the stream end and reports why.
+				s.writeFailed(err)
 				<-s.stopWrite
 				return
 			}
 		}
+	}
+}
+
+// writeFailed ends the session after a failed send. Usually the whole stream
+// has failed and the reader reports why, so the writer gives it a moment first.
+// If only the send side broke, the reader never notices, and the writer ends
+// the session itself.
+func (s *Session) writeFailed(err error) {
+	if s.closing.Load() || s.streamDone.Load() {
+		return
+	}
+	msg := describe(err)
+	s.log.Warn("nova sonic send failed", "err", msg)
+	select {
+	case <-s.readerDone:
+	case <-s.stopWrite:
+	case <-time.After(writeFailGrace):
+		s.end("write_error: " + msg)
 	}
 }
 
@@ -270,6 +310,12 @@ func (s *Session) readLoop() {
 	}
 	if err := s.stream.Err(); err != nil && !errors.Is(err, context.Canceled) {
 		msg := describe(err)
+		if isIdleTimeout(err) {
+			// Expected when the user stays quiet: a fresh session follows.
+			s.log.Info("nova sonic ended the stream after about 295 s without speech", "reason", "idle_timeout", "err", msg)
+			s.end("idle_timeout")
+			return
+		}
 		s.log.Error("nova sonic stream failed", "err", msg)
 		if s.h.OnError != nil {
 			s.h.OnError(msg)
@@ -316,6 +362,19 @@ func describe(err error) string {
 		return api.ErrorCode()
 	}
 	return err.Error()
+}
+
+// isIdleTimeout reports whether err is Nova Sonic ending the stream because it
+// received no speech or interactive content for about 295 s. Silent audio
+// frames don't reset that timer.
+func isIdleTimeout(err error) bool {
+	var api smithy.APIError
+	if !errors.As(err, &api) || api.ErrorCode() != "ValidationException" {
+		return false
+	}
+	msg := api.ErrorMessage()
+	return strings.Contains(msg, "Timed out waiting for audio bytes") ||
+		strings.Contains(msg, "gaps between audio bytes")
 }
 
 func newID() string {

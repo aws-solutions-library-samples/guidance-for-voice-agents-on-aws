@@ -1,12 +1,14 @@
 package nova
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -47,6 +49,20 @@ func TestEventsUse24kHzBothWays(t *testing.T) {
 	}
 	if _, err := json.Marshal(promptStart("p", "matthew")); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestAudioInputAndOutputConfigsAreSeparate(t *testing.T) {
+	_, cs := eventName(t, audioContentStart("p", "a"))
+	in := cs["audioInputConfiguration"].(object)
+	if _, ok := in["voiceId"]; ok {
+		t.Errorf("audio input config has a voiceId: %v", in)
+	}
+	in["sampleRateHertz"] = 16000 // must not leak into later events
+	_, ps := eventName(t, promptStart("p", "tiffany"))
+	_, cs = eventName(t, audioContentStart("p", "a"))
+	if ps["audioOutputConfiguration"].(object)["sampleRateHertz"] != 24000 || cs["audioInputConfiguration"].(object)["sampleRateHertz"] != 24000 {
+		t.Error("audio configs share state between events")
 	}
 }
 
@@ -131,6 +147,7 @@ type fakeStream struct {
 	closeOnce sync.Once
 	err       error
 	sendErr   error
+	wedged    bool // Close leaves the events channel open
 }
 
 func newFakeStream() *fakeStream {
@@ -158,10 +175,18 @@ func (f *fakeStream) Send(_ context.Context, ev types.InvokeModelWithBidirection
 }
 
 func (f *fakeStream) Events() <-chan types.InvokeModelWithBidirectionalStreamOutput { return f.events }
+
+// Close ends the events channel, as the SDK does, unless the stream is wedged.
 func (f *fakeStream) Close() error {
-	f.closeOnce.Do(func() { close(f.events) })
+	f.mu.Lock()
+	wedged := f.wedged
+	f.mu.Unlock()
+	if !wedged {
+		f.end()
+	}
 	return nil
 }
+func (f *fakeStream) end()       { f.closeOnce.Do(func() { close(f.events) }) }
 func (f *fakeStream) Err() error { return f.err }
 
 func (f *fakeStream) emit(t *testing.T, ev object) {
@@ -282,6 +307,122 @@ func TestSessionReportsModelEndAndStreamError(t *testing.T) {
 		t.Errorf("reason %q, error %q", r, errMsg)
 	}
 	s.Close()
+}
+
+// idleTimeoutErr is the error Bedrock returns after about 295 s without speech.
+var idleTimeoutErr = &smithy.GenericAPIError{
+	Code: "ValidationException",
+	Message: "RequestId=00000000-0000-0000-0000-000000000000 : Timed out waiting for audio bytes or interactive content. " +
+		"Please ensure gaps between audio bytes and interactive content are less than 295 seconds.",
+}
+
+func TestSessionReportsIdleTimeout(t *testing.T) {
+	var logs bytes.Buffer
+	var logMu sync.Mutex
+	log := slog.New(slog.NewTextHandler(&lockedWriter{w: &logs, mu: &logMu}, nil))
+
+	f := newFakeStream()
+	f.err = idleTimeoutErr
+	ended := make(chan string, 1)
+	errored := make(chan string, 1)
+	s, err := dial(context.Background(), func(context.Context, string) (eventStream, error) { return f, nil }, Config{}, Handler{
+		OnError: func(m string) { errored <- m },
+		OnEnd:   func(r string) { ended <- r },
+	}, log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if r := <-ended; r != "idle_timeout" {
+		t.Errorf("reason %q, want idle_timeout", r)
+	}
+	s.Close()
+	select {
+	case m := <-errored:
+		t.Errorf("OnError(%q) called for an idle timeout", m)
+	default:
+	}
+	logMu.Lock()
+	out := logs.String()
+	logMu.Unlock()
+	if strings.Contains(out, "level=ERROR") || !strings.Contains(out, "level=INFO") || !strings.Contains(out, "reason=idle_timeout") {
+		t.Errorf("idle timeout logs:\n%s", out)
+	}
+}
+
+func TestOtherValidationErrorsAreStreamErrors(t *testing.T) {
+	f := newFakeStream()
+	f.err = &smithy.GenericAPIError{Code: "ValidationException", Message: "Invalid input request"}
+	ended := make(chan string, 1)
+	errored := make(chan string, 1)
+	s := dialFake(t, f, Config{}, Handler{OnError: func(m string) { errored <- m }, OnEnd: func(r string) { ended <- r }})
+	f.Close()
+	if r := <-ended; r != "stream_error: ValidationException: Invalid input request" {
+		t.Errorf("reason %q", r)
+	}
+	if m := <-errored; m != "ValidationException: Invalid input request" {
+		t.Errorf("error %q", m)
+	}
+	s.Close()
+
+	if isIdleTimeout(errors.New("Timed out waiting for audio bytes")) {
+		t.Error("a non-API error counted as an idle timeout")
+	}
+	if isIdleTimeout(&smithy.GenericAPIError{Code: "ModelTimeoutException", Message: idleTimeoutErr.Message}) {
+		t.Error("another error code counted as an idle timeout")
+	}
+}
+
+func TestSessionEndsOnWriteError(t *testing.T) {
+	defer func(d time.Duration) { writeFailGrace = d }(writeFailGrace)
+	writeFailGrace = 10 * time.Millisecond
+
+	f := newFakeStream()
+	ended := make(chan string, 1)
+	s := dialFake(t, f, Config{}, Handler{OnEnd: func(r string) { ended <- r }})
+	// Only the send side breaks: the events channel stays open.
+	f.mu.Lock()
+	f.sendErr = errors.New("broken pipe")
+	f.mu.Unlock()
+	s.SendAudio([]byte{1, 0})
+	select {
+	case r := <-ended:
+		if r != "write_error: broken pipe" {
+			t.Errorf("reason %q", r)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("session never ended after a failed send")
+	}
+	s.Close()
+}
+
+func TestCloseIsBounded(t *testing.T) {
+	defer func(d time.Duration) { closeWait = d }(closeWait)
+	closeWait = 50 * time.Millisecond
+
+	f := newFakeStream()
+	f.wedged = true
+	s := dialFake(t, f, Config{}, Handler{})
+	defer f.end() // let the reader goroutine exit
+
+	done := make(chan struct{})
+	go func() { s.Close(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close hung on a wedged stream")
+	}
+}
+
+type lockedWriter struct {
+	w  io.Writer
+	mu *sync.Mutex
+}
+
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
 }
 
 func TestSessionLimit(t *testing.T) {
