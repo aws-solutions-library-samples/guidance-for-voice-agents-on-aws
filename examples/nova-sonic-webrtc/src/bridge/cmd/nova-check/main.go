@@ -96,7 +96,7 @@ func run() error {
 		return err
 	}
 	defer session.Close()
-	log.Printf("session open (model %s, region %s); speaking %s (%.1f s)", *modelID, *region, *wavPath, float64(len(question))/nova.SampleRate)
+	log.Printf("session open (model %s, region %s); speaking %s (%.1f s)", *modelID, cfg.Region, *wavPath, float64(len(question))/nova.SampleRate)
 
 	// Stream the question in real time, then keep sending silence, as a live
 	// microphone would, so Nova Sonic can detect the end of the turn.
