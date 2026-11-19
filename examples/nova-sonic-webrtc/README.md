@@ -4,16 +4,48 @@
 
 This sample builds a conversational voice agent with Amazon Nova 2.5 Sonic and connects it to users of a web application through [Amazon Interactive Video Service (Amazon IVS) Real-Time Streaming](https://aws.amazon.com/ivs/features/real-time-streaming/). It has two parts: the IVS sample CodePen in the browser, and a Go service, the bridge, which connect to each other through an IVS Stage. The bridge uses the [IVS real-time streaming Linux broadcast SDK](https://docs.aws.amazon.com/ivs/latest/RealTimeUserGuide/broadcast-linux.html) to join the Stage as a participant. It receives the user's spoken audio, streams it to Nova 2.5 Sonic through the Amazon Bedrock `InvokeModelWithBidirectionalStream` API, and publishes the agent's spoken reply back to the Stage. Amazon IVS handles the real-time media transport, and your application handles the conversation.
 
-## How it works
+## Relationship to main guidance
+
+Standalone. This example shares no code, CDK stacks, or deployed resources with the main guidance. It doesn't use Daily, Pipecat, or the main guidance's ECS service, and you can run and remove it on its own.
+
+## Architecture
 
 The bridge sits between an IVS Stage and Amazon Bedrock:
+
+```mermaid
+flowchart LR
+    user["Browser<br/>IVS sample CodePen"]
+    stage["Amazon IVS<br/>Real-Time Stage"]
+    subgraph ec2["EC2 instance, Amazon Linux 2023"]
+        sdk["IVS Linux<br/>broadcast SDK"]
+        app["Bridge<br/>internal/bot, internal/nova"]
+    end
+    nova["Amazon Nova 2.5 Sonic<br/>on Amazon Bedrock"]
+
+    user <-->|"WebRTC audio"| stage
+    stage <-->|"WebRTC audio"| sdk
+    sdk <-->|"PCM audio"| app
+    app <-->|"InvokeModelWithBidirectionalStream<br/>HTTP/2, 24 kHz PCM"| nova
+```
+
+1. You create a bot token and a user token for the Stage. The bridge joins the Stage with the bot token and publishes one audio stream.
+2. A user joins the Stage from the CodePen with the user token and publishes their microphone.
+3. The bridge subscribes to that user's audio only. The SDK delivers it as PCM, and the bridge converts it to 24 kHz mono and cuts it into 32 ms frames.
+4. The bridge streams the frames to Nova 2.5 Sonic over `InvokeModelWithBidirectionalStream`. While the user is quiet, it sends silent frames.
+5. Nova Sonic streams back transcripts and 24 kHz speech. The bridge paces the speech into its published audio stream, and the user hears it through the Stage.
+6. If the user talks over the reply, Nova Sonic signals an interruption and the bridge drops the speech it hasn't played yet.
+7. When the user leaves, the bridge closes the Nova Sonic session and starts one for the next user who is waiting.
+
+The bridge sends the user's audio at 24 kHz, which Nova Sonic accepts along with 8 and 16 kHz.
+
+The same architecture as an image:
 
 ![Architecture diagram showing a browser exchanging WebRTC audio with an Amazon IVS Real-Time Streaming stage. Inside the AWS Cloud, an agent server contains an Amazon IVS Linux broadcast SDK component for WebRTC media and a voice application component for the Nova 2.5 Sonic session, which exchange PCM audio. The voice application connects to Amazon Nova 2.5 Sonic on Amazon Bedrock through a bidirectional HTTP/2 stream.](docs/architecture.png)
 
 - **Startup.** The bridge reads the bot's token from `BOT_TOKEN_FILE` (or `BOT_TOKEN`), joins the Stage, and publishes one audio stream. It exits with a clear message if the token is malformed, expired, or lacks `PUBLISH`, or if the Stage connection fails, now or later.
 - **One user at a time.** When a user joins from the CodePen with their own token ([how to create one](#3-create-the-participant-tokens)), the bot opens a Nova Sonic stream and subscribes to that user's audio only. Others wait in join order.
 - **Barge-in.** If the user talks over the assistant, playback stops immediately.
-- **Session limit.** The conversation ends when the user leaves. If Nova's stream ends first, at Bedrock's stream time limit, the bridge starts a fresh one for the same user.
+- **Session limit.** The conversation ends when the user leaves. If Nova's stream ends first, for example at the session limit or after about 5 minutes without speech, the bridge starts a fresh one for the same user. See [Stream time limits](#stream-time-limits).
 
 ## Repository layout
 
@@ -107,9 +139,21 @@ All settings are environment variables read by the bridge.
 | `AWS_REGION` | — | Bedrock Region for Nova Sonic. Required unless your shared AWS config sets a region. Use a Region where Nova 2.5 Sonic is available. |
 | `SYSTEM_PROMPT` | short, friendly assistant | Sent to Nova Sonic at the start of each conversation |
 | `VOICE_ID` | `matthew` | Nova Sonic voice, for example `tiffany` or `amy` |
-| `SESSION_LIMIT_SECONDS` | `465` | Ends each Nova Sonic stream before Bedrock's 8-minute limit; the bridge then starts a fresh one |
+| `SESSION_LIMIT_SECONDS` | `465` | Ends each Nova Sonic stream before Bedrock's 8-minute limit; the bridge then starts a fresh one. Must be less than 480. |
 
 AWS credentials come from the default chain: on EC2, the instance role.
+
+### Stream time limits
+
+Three limits can end a Nova Sonic stream:
+
+| Limit | When it applies | What Bedrock returns | What the bridge does |
+| --- | --- | --- | --- |
+| Nova Sonic idle timeout | About 295 s without speech from the user. The silent frames the bridge sends while the user is quiet don't count as speech. | `ValidationException` saying gaps between audio bytes must be less than 295 seconds | Logs `nova sonic ended the stream after about 295 s without speech` at Info, ends the conversation with reason `idle_timeout`, and starts a fresh session |
+| Bedrock connection limit | 480 s (8 minutes) after the stream opens | `ModelTimeoutException` | Logs `nova sonic stream failed` and starts a fresh session. The bridge's own limit ends each stream first, so you shouldn't see this. |
+| `SESSION_LIMIT_SECONDS` | 465 s after the stream opens, by default. The bridge rejects values of 480 or more at startup. | Nothing: the bridge ends the stream itself | Closes the session cleanly, ends the conversation with reason `session_limit`, and starts a fresh session |
+
+A fresh session doesn't carry over the conversation. Nova Sonic starts again with only the system prompt, so it doesn't remember what the user said before. If other users are waiting, they go first, and the user goes to the back of the line.
 
 ## Where to run it
 
@@ -186,6 +230,7 @@ Everything is in the bridge's log, tagged with `user=<participant ID>`:
 - `time to first audio ms=…`: from the user's transcribed words to the first assistant audio at the bridge.
 - `barge-in: flushed assistant audio ms=…`: how much unplayed speech was dropped.
 - `nova sonic stream failed err="<ErrorCode>: <message>"` if Bedrock rejects or drops the stream.
+- `nova sonic ended the stream after about 295 s without speech`, then `conversation ended reason=idle_timeout`, when the user stays quiet. A fresh session follows.
 - `audio stats` (every 10 s during a conversation). The first three counters follow the audio from end to end, so the first one that stops growing shows where it stops:
   - `userBuffersReceived`: buffers of the user's audio from IVS.
   - `framesSentToNova`: 32 ms frames sent to Nova Sonic, including keep-alive silence.
@@ -194,12 +239,72 @@ Everything is in the bridge's log, tagged with `user=<participant ID>`:
   - `playoutPushErrors` should stay at 0.
   - `playoutSilentSec` grows whenever the assistant isn't talking; that's normal.
 
+## Cost
+
+You are responsible for the cost of the AWS services used while running this example.
+
+Estimate for `us-east-1`, checked on 2026-11-19 against the public pricing pages linked below. It assumes the bridge runs all month (730 hours) and handles 100 conversations of 5 minutes each (500 minutes, about 8.3 hours), with the user's camera on in the CodePen.
+
+| Item | Basis | Monthly |
+| --- | --- | --- |
+| [Amazon Nova 2.5 Sonic](https://aws.amazon.com/bedrock/pricing/) | Speech input and output tokens for 500 minutes of conversation, at the rates on the Amazon Nova tab | Usage-based, see the pricing page |
+| [Amazon IVS Real-Time Streaming](https://aws.amazon.com/ivs/pricing/), bot participant | Audio only, on the Stage all month: $0.0072 per participant-hour x 730 hours | $5.26 |
+| Amazon IVS Real-Time Streaming, users | Camera on, so the standard rate: $0.0720 per participant-hour x 8.3 hours | $0.60 |
+| [EC2 `t4g.small`](https://aws.amazon.com/ec2/instance-types/t4/), always on | Free for up to 750 hours a month until 2026-12-31 under the t4g.small free trial. After that, or for a `t3.small`, use the [On-Demand rate](https://aws.amazon.com/ec2/pricing/on-demand/). | $0 until 2026-12-31 |
+| [Amazon EBS](https://aws.amazon.com/ebs/pricing/) root volume | 8 GB gp3, the AL2023 default | Under $1 |
+| **Total** | | **About $6 plus Nova 2.5 Sonic usage, until the t4g.small free trial ends** |
+
+Nova 2.5 Sonic usage and, after the free trial, the always-on instance are the main costs. The bot participant bills for every hour it's on the Stage, even with no one talking to it. New AWS accounts also get 20 IVS participant-hours a month free for the first 12 months.
+
+To cut cost, stop the bridge and the instance when you aren't testing.
+
+## Cleanup
+
+1. **Stop the bridge.** Press Ctrl+C in the terminal running `run.sh`. The bridge ends any conversation and leaves the Stage.
+2. **Remove the token and log files.** On the instance, in `examples/nova-sonic-webrtc/`, delete the bot token and the log, along with any replies the tests wrote:
+
+   ```bash
+   rm -f ~/bot-token run.log reply.wav
+   ```
+
+   Also delete the `bot-token` file on the machine where you created it.
+3. **Terminate the instance** and delete its security group:
+
+   ```bash
+   aws ec2 terminate-instances --instance-ids <instance-id>
+   aws ec2 wait instance-terminated --instance-ids <instance-id>
+   aws ec2 delete-security-group --group-id <security-group-id>
+   ```
+
+4. **Delete the instance role.** Remove it from its instance profile, remove its policies, then delete it:
+
+   ```bash
+   aws iam remove-role-from-instance-profile --instance-profile-name <profile-name> --role-name <role-name>
+   aws iam delete-instance-profile --instance-profile-name <profile-name>
+   aws iam detach-role-policy --role-name <role-name> --policy-arn arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+   aws iam delete-role-policy --role-name <role-name> --policy-name <policy-name>   # iam-policy.json, if attached inline
+   aws iam delete-role --role-name <role-name>
+   ```
+
+   If you attached `iam-policy.json` as a customer managed policy, detach it with `aws iam detach-role-policy` and delete it with `aws iam delete-policy` instead.
+5. **Delete the Stage.** This also ends any participant tokens still outstanding for it:
+
+   ```bash
+   aws ivs-realtime delete-stage --region "$STAGE_REGION" --arn "$STAGE_ARN"
+   ```
+
 ## Security
 
 - **The bridge opens no network listener.** It connects out to the IVS Stage and to Bedrock. The instance has no inbound security-group rules. Use SSM Session Manager, which IAM authenticates, for shell access.
 - **Participant tokens are the access control.** Anyone holding a valid token for the Stage can join and talk with the bot, and hear whatever it says to anyone on the Stage. Keep user tokens short-lived and give them only to the people meant to use the bot.
 - **The CodePen is a public page** hosted on codepen.io, running IVS's sample code in the user's browser. Paste only short-lived user tokens into it, never the bot token.
-- **The bot token** is read once at startup from a file (preferred; keep it `chmod 600`) or from `BOT_TOKEN`, which the bridge then removes from its environment. It is never logged.
+- **The bot token** is read once at startup from a file (preferred; keep it `chmod 600`) or from `BOT_TOKEN`, which the bridge then removes from its environment. It is never logged. The bridge warns at startup if other users can read the file.
 - **AWS credentials** come from the instance role. Nothing is stored in files.
 - **Least privilege.** The instance's IAM policy allows only `bedrock:InvokeModel` on the one Nova model. Tokens are created wherever you run the CLI.
 - **Transcripts are in the bridge log.** Treat the log as you would the conversation itself.
+
+## Notices
+
+Security and compliance are a [shared responsibility](https://aws.amazon.com/compliance/shared-responsibility-model/) between AWS and the customer. This example is a starting point for evaluation, not a production deployment. Review and harden it before using it with real users or data.
+
+*Customers are responsible for making their own independent assessment of the information in this Guidance. This Guidance: (a) is for informational purposes only, (b) represents AWS current product offerings and practices, which are subject to change without notice, and (c) does not create any commitments or assurances from AWS and its affiliates, suppliers or licensors. AWS products or services are provided "as is" without warranties, representations, or conditions of any kind, whether express or implied. AWS responsibilities and liabilities to its customers are controlled by AWS agreements, and this Guidance is not part of, nor does it modify, any agreement between AWS and its customers.*
