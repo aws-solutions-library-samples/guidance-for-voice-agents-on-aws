@@ -1,0 +1,8 @@
+src/bridge/bin/
+bot-token
+run.log
+*.wav
+!/question.wav
+*.pcm
+go.work
+go.work.sum
