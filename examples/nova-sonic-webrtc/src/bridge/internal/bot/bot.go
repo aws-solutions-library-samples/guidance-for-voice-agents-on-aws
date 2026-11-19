@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -64,7 +65,10 @@ type Bot struct {
 	joined chan ivsrealtime.ParticipantInfo
 	fatal  chan error
 
-	stop      chan struct{}
+	stop chan struct{}
+	// ctx is cancelled by Close, so an in-flight nova.Dial gives up at once.
+	ctx       context.Context
+	cancel    context.CancelFunc
 	wg        sync.WaitGroup
 	closeOnce sync.Once
 }
@@ -126,6 +130,7 @@ func Start(cfg Config, log *slog.Logger) (*Bot, error) {
 		return fail(errors.New("bot: joined but never started publishing; check BOT_TOKEN is unexpired, unused, and has PUBLISH and SUBSCRIBE"))
 	}
 
+	b.ctx, b.cancel = context.WithCancel(context.Background())
 	b.playout.Start()
 	b.wg.Add(2)
 	go b.runUplink()
@@ -143,6 +148,7 @@ func (b *Bot) Fatal() <-chan error { return b.fatal }
 func (b *Bot) Close() {
 	b.closeOnce.Do(func() {
 		close(b.stop)
+		b.cancel()
 		b.wg.Wait()
 		b.playout.Stop()
 		b.stage.Close()

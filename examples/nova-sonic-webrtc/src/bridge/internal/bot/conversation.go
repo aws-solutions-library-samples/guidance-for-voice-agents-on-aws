@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"context"
 	"log/slog"
 	"slices"
 	"time"
@@ -130,6 +129,9 @@ func (c *controller) startNext() {
 			continue
 		}
 		if !c.start(id) {
+			if c.b.ctx.Err() != nil {
+				return // shutting down
+			}
 			c.waiting = append([]string{id}, c.waiting...)
 			c.backOff("Nova Sonic unavailable", "")
 			return
@@ -152,7 +154,7 @@ func (c *controller) start(userID string) bool {
 	log := b.log.With("user", userID)
 	conv := &conversation{b: b, userID: userID, log: log, startedAt: time.Now()}
 
-	session, err := nova.Dial(context.Background(), b.cfg.Bedrock, nova.Config{
+	session, err := nova.Dial(b.ctx, b.cfg.Bedrock, nova.Config{
 		ModelID:      b.cfg.ModelID,
 		VoiceID:      b.cfg.VoiceID,
 		SystemPrompt: b.cfg.SystemPrompt,
@@ -170,7 +172,9 @@ func (c *controller) start(userID string) bool {
 		},
 	}, log)
 	if err != nil {
-		log.Error("could not open a Nova Sonic session", "err", err)
+		if b.ctx.Err() == nil {
+			log.Error("could not open a Nova Sonic session", "err", err)
+		}
 		return false
 	}
 	conv.session = session
