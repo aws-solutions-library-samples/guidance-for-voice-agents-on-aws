@@ -203,7 +203,9 @@ func (s *Session) SendAudio(pcm []byte) {
 // Close closes the audio input, prompt, and session in the order Nova Sonic
 // requires, then the stream, and waits for the session's goroutines, for at
 // most closeWait. OnEnd is not called for a session ended by Close. It is safe
-// to call more than once.
+// to call more than once. On a wedged stream, Close returns after closeWait,
+// but its shutdown goroutine and the reader may stay behind until the stream
+// unblocks.
 func (s *Session) Close() {
 	if !s.closing.CompareAndSwap(false, true) {
 		return
