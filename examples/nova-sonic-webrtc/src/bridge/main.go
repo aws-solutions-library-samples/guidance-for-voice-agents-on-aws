@@ -28,6 +28,11 @@ import (
 	"ivsnovasonic/bridge/internal/bot"
 )
 
+// bedrockStreamLimit is Bedrock's 8-minute limit on one bidirectional stream,
+// in seconds. SESSION_LIMIT_SECONDS must be shorter so the bridge ends each
+// session cleanly first.
+const bedrockStreamLimit = 480
+
 const defaultSystemPrompt = "You are a friendly assistant talking with the user over a live audio call. " +
 	"Keep your answers short and conversational, usually two or three sentences."
 
@@ -39,7 +44,7 @@ type settings struct {
 	sessionLimit time.Duration
 }
 
-func loadSettings() (settings, error) {
+func loadSettings(log *slog.Logger) (settings, error) {
 	s := settings{
 		modelID:      envOr("NOVA_MODEL_ID", "amazon.nova-2-5-sonic"),
 		systemPrompt: envOr("SYSTEM_PROMPT", defaultSystemPrompt),
@@ -49,8 +54,11 @@ func loadSettings() (settings, error) {
 	if err != nil || limit <= 0 {
 		return s, fmt.Errorf("SESSION_LIMIT_SECONDS must be a positive number of seconds")
 	}
+	if limit >= bedrockStreamLimit {
+		return s, fmt.Errorf("SESSION_LIMIT_SECONDS is %d but must be less than %d, Bedrock's 8-minute stream limit", limit, bedrockStreamLimit)
+	}
 	s.sessionLimit = time.Duration(limit) * time.Second
-	token, err := botToken()
+	token, err := botToken(log)
 	if err != nil {
 		return s, err
 	}
@@ -59,9 +67,13 @@ func loadSettings() (settings, error) {
 }
 
 // botToken reads the bot's participant token from BOT_TOKEN_FILE if set, else
-// from BOT_TOKEN. A file keeps the token out of the process environment.
-func botToken() (string, error) {
+// from BOT_TOKEN. A file keeps the token out of the process environment. It
+// warns if other users can read the file.
+func botToken(log *slog.Logger) (string, error) {
 	if path := os.Getenv("BOT_TOKEN_FILE"); path != "" {
+		if info, err := os.Stat(path); err == nil && info.Mode().Perm()&0o077 != 0 {
+			log.Warn("BOT_TOKEN_FILE is accessible to other users; run chmod 600 on it", "file", path, "mode", info.Mode().Perm().String())
+		}
 		b, err := os.ReadFile(path)
 		if err != nil {
 			return "", fmt.Errorf("read BOT_TOKEN_FILE: %w", err)
@@ -87,7 +99,7 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
-	s, err := loadSettings()
+	s, err := loadSettings(log)
 	if err != nil {
 		return err
 	}
