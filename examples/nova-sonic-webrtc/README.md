@@ -52,7 +52,8 @@ The same architecture as an image:
 | Path | What it is |
 | --- | --- |
 | [src/bridge/](src/bridge/) | Go service: IVS Linux broadcast SDK and AWS SDK for Go v2 |
-| [src/bridge/main.go](src/bridge/main.go) | Configuration, startup and shutdown |
+| [src/bridge/main.go](src/bridge/main.go) | Startup and shutdown |
+| [src/bridge/internal/settings/](src/bridge/internal/settings/) | Configuration from environment variables (pure Go) |
 | [src/bridge/internal/bot/](src/bridge/internal/bot/) | Bot participant and audio callbacks (cgo) |
 | [src/bridge/internal/nova/](src/bridge/internal/nova/) | Nova Sonic session over Bedrock (pure Go) |
 | [src/bridge/internal/audio/](src/bridge/internal/audio/) | Resampling, framing, playout, WAV I/O (pure Go) |
